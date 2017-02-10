@@ -370,3 +370,6 @@ paket-files/
 # !tools/packages.config
 
 # End of https://www.gitignore.io/api/visualstudio,python
+#
+#Custom
+data/
