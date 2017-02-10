@@ -15,6 +15,9 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 import random
+import sys
+import os
+import csv
 import numpy as np
 from scipy import signal
 from sklearn.utils import shuffle
@@ -23,19 +26,37 @@ from keras.models import Sequential
 from keras.layers import Convolution2D, MaxPooling2D
 from keras.layers import Activation, Dropout, Flatten, Dense
 
-NUM_SAMPLES = 1000
 CHUNK_SIZE = 100
-NUM_CHUNKS = NUM_SAMPLES // CHUNK_SIZE
-TRAIN_SIZE = 1000 #Samples per wave type
-TEST_SIZE = 100 #Samples per wave type
-NUM_EPOCH=5
+
 
 #Runs a basic numpy FFT on a time series in chunks
-def extract_features(time_series):
-    time_series = time_series.reshape(NUM_CHUNKS, CHUNK_SIZE)
+def extract_features(time_series, chunk_size):
+    time_series = time_series.reshape(-1, chunk_size)
     #Normalize the complex FFT output, convert the results into a properly shaped array
     return np.array([np.abs(np.fft.fft(time_series))])
 
+#Get the folder name to read from
+if len(sys.argv) < 2:
+    print("Usage: multiseries_fft_cnn.py [folder]")
+    exit()
+data_folder = sys.argv[1]
+#Define labels
+labels = {}
+#Stores training inputs
+training_inputs = []
+#Stores training outputs
+training_outputs = []
+#Read in data
+for label in os.listdir(data_folder):
+    labels[label] = len(labels)
+    cur_path = os.path.join(data_folder, label)
+    for data_filename in os.listdir(cur_path):
+        with open(os.path.join(cur_path, data_filename), 'r') as data_file:
+            print(data_filename, file=sys.stderr)
+            data = [list(map(float, row[1:])) for row in list(csv.reader(data_file))[1:]]
+            print(len(data))
+
+"""
 #Set up a fixed space for the waves
 t = np.linspace(-10, 10, NUM_SAMPLES)
 
@@ -103,3 +124,4 @@ train_results = model.evaluate(test_input, test_output)
 
 #Print results
 print("Accuracy of model: {}%".format(train_results[1] * 100))
+"""
