@@ -3,3 +3,4 @@ scipy
 keras
 sklearn
 pandas
+pillow
