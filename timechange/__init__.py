@@ -1,10 +1,3 @@
-<<<<<<< HEAD
-#!/usr/bin/env python3
-
-class TimeChange:
-    def __init__(self):
-        print("Constructor called")
-=======
 #!/usr/bin/env python3
 from collections import defaultdict
 import sys
@@ -63,5 +56,3 @@ class TimeChange:
         *args -- Extra args to pass the pandas parser
         """
         return pandas.read_csv(filename, nrows=1, *args, **kwargs).columns
-
->>>>>>> master

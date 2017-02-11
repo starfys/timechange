@@ -1,13 +1,6 @@
-<<<<<<< HEAD
-numpy
-scipy
-keras
-sklearn
-=======
 numpy
 scipy
 keras
 sklearn
 pandas
 pillow
->>>>>>> master
