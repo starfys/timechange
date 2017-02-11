@@ -373,3 +373,6 @@ paket-files/
 #
 #Custom
 data/
+
+#vim
+.*.s??
