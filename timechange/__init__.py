@@ -56,4 +56,3 @@ class TimeChange:
         *args -- Extra args to pass the pandas parser
         """
         return pandas.read_csv(filename, nrows=1, *args, **kwargs).columns
-
