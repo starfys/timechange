@@ -5,7 +5,7 @@ import timechange
 
 tc = timechange.TimeChange()
 if len(sys.argv) < 2:
-    print("Need a filename")
+    print("Need a directory (not an individual .csv)")
     exit()
 for file_id, csv_filename in enumerate(os.listdir(sys.argv[1])):
     print(csv_filename)
@@ -33,7 +33,7 @@ for file_id, csv_filename in enumerate(os.listdir(sys.argv[1])):
                 break
             except Exception as e:
                 data_columns = backup_columns
-                print("Invalid answer")
+                print("Invalid answer - perhaps you gave an index number not a column header name?")
                 print("What columns should be removed? (enter a comma separated list of column numbers): ")
                 answer = input().rstrip().split(',')
         print("The data now will only use these columns:")
@@ -41,6 +41,11 @@ for file_id, csv_filename in enumerate(os.listdir(sys.argv[1])):
             print("{}: {}".format(index, col_name))
 
     data = tc.read_csv(csv_filename, usecols=data_columns)
+
+    if not os.path.isdir("data"):
+        os.mkdir("data")
+    if not os.path.isdir("data/results"):
+        os.mkdir("data/results")
 
     from PIL import Image
     features = tc.extract_features(data, data_size=1000)
