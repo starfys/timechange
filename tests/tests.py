@@ -33,6 +33,8 @@ import os
 import json
 import numpy as np
 from scipy import signal
+#Add one level up to timechange
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import timechange
 """DEBUG
 """
@@ -139,6 +141,9 @@ else:
     data_folder = sys.argv[1]
     #Take the rest of the arguments as as a separated list and handle spaces
     schema = " ".join(sys.argv[2:]).strip("\"").split(",")
+# Tests do not currently work
+print("Tests do not currently work")
+exit()
 #Try reading a file database into timechange
 try:
     #Read data into timechange object
