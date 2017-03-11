@@ -1,18 +1,12 @@
 #!/usr/bin/env python3
 
-import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 from tkinter import *
 from tkinter.ttk import *
 from tkinter import messagebox
 from tkinter import filedialog
-import configparser
-
+sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 import timechange
-from PIL import Image
-
-tc = timechange.TimeChange()
 
 class CheckBoxSet(Frame):
     def __init__(self, parent, picks=[], side=LEFT, anchor=W):
@@ -29,24 +23,28 @@ class CheckBoxSet(Frame):
         return self.items
 
 class WelcomeScreen(Frame):
-    def createProject(selfs):
-        messagebox.showerror("Error", "Creating new projects not implemented yet")
+    def defaultProject(self):
+        self.parent.tc = timechange.TimeChange()
+        projectDir = os.path.join(os.path.expanduser('~'), 'timechange', 'default')
+        self.parent.loadProject(projectDir)
 
     def loadProject(self):
         projectDir = filedialog.askdirectory(initialdir=os.path.expanduser("~"))
-        configFile = os.path.join(projectDir, "timechange.cfg")
-        if os.path.isfile(configFile):
+        dirname = os.path.dirname(os.path.realpath(projectDir))
+        basename = os.path.basename(os.path.realpath(projectDir))
+        try:
+            self.parent.tc = timechange.TimeChange(project_name=basename, parent_folder=dirname)
             self.parent.loadProject(projectDir)
-        else:
+        except:
             messagebox.showerror("Error", "%s is an invalid project directory" % projectDir)
 
     def __init__(self, parent):
         Frame.__init__(self, parent)
         self.parent = parent
-        self.CREATENEWBUTTON = Button(self)
-        self.CREATENEWBUTTON["text"] = "Create New Project"
-        self.CREATENEWBUTTON["command"] = self.createProject
-        self.CREATENEWBUTTON.pack()
+        self.DEFAULTBUTTON = Button(self)
+        self.DEFAULTBUTTON["text"] = "Default Project"
+        self.DEFAULTBUTTON["command"] = self.defaultProject
+        self.DEFAULTBUTTON.pack()
         self.LOADEXISTINGBUTTON = Button(self)
         self.LOADEXISTINGBUTTON["text"] = "Load Existing Project"
         self.LOADEXISTINGBUTTON["command"] = self.loadProject
@@ -61,7 +59,6 @@ class LoadFilesScreen(Frame):
             self.IMPORTFILES.insert("", "end", text=basename, values=("", importFile))
 
     def selectTreeRow(self, event):
-        #messagebox.showerror("Error", "Editing labels not implemented yet")
         selectedItems = self.IMPORTFILES.selection()
         for selectedItem in selectedItems:
             self.IMPORTFILES.set(selectedItem, column="Label", value=self.LABEL.get())
@@ -71,16 +68,14 @@ class LoadFilesScreen(Frame):
             file = self.IMPORTFILES.item(item)["text"]
             label = self.IMPORTFILES.item(item)["values"][0]
             fullpath = self.IMPORTFILES.item(item)["values"][1]
-            tc.add_training_file(label, fullpath)
+            self.parent.tc.add_training_file(label, fullpath)
         self.parent.updateExistingFiles()
-
 
     def __init__(self, parent):
         Frame.__init__(self, parent)
         self.parent = parent
-
         self.LABELLBL = Label(self)
-        self.LABELLBL["text"] = "Instructions: \n" \
+        self.LABELLBL["text"] = "                                            Instructions: \n" \
                                 "Step 1) Click the \"Select Files\" button to select files from the filesystem\n" \
                                 "Step 2) Type a label into the following text box\n" \
                                 "Step 3) Click the files you want to apply this label to\n" \
@@ -89,12 +84,10 @@ class LoadFilesScreen(Frame):
         self.LABELLBL.pack()
         self.LABEL = Entry(self)
         self.LABEL.pack()
-
         self.IMPORTFILESBUTTON = Button(self)
         self.IMPORTFILESBUTTON["text"] = "Select Files"
         self.IMPORTFILESBUTTON["command"] = self.importFiles
         self.IMPORTFILESBUTTON.pack()
-
         self.IMPORTFILES = Treeview(self, columns=('Label', 'fullpath'))
         self.IMPORTFILES.heading('#0', text='File')
         self.IMPORTFILES.heading('#1', text='Label')
@@ -104,44 +97,38 @@ class LoadFilesScreen(Frame):
         self.IMPORTFILES.column('#2', stretch=YES)
         self.IMPORTFILES.bind("<<TreeviewSelect>>", self.selectTreeRow)
         self.IMPORTFILES["displaycolumns"] = ("Label")
-
         self.IMPORTFILES.pack()
-
         self.ADDBUTTON = Button(self)
         self.ADDBUTTON["text"] = "Add to Project"
         self.ADDBUTTON["command"] = self.addFiles
         self.ADDBUTTON.pack()
-
-
         self.pack()
 
 class PickHeaders(Frame):
     def genFFT(self):
         checkBoxState = self.HEADERS.state()
-        print(str(checkBoxState))
-
         self.selectedDataColumns = []
         for key in checkBoxState:
            if checkBoxState[key] == 0:
                 self.selectedDataColumns.append(key)
+        self.parent.tc.columns=self.selectedDataColumns
+        self.parent.tc.convert_all_csv()
 
-        self.dataDir = os.path.join(self.parent.projectPath, "data")
-        self.resultsDir = os.path.join(self.dataDir, "results")
-        if not os.path.isdir(self.dataDir):
-            os.mkdir(self.dataDir)
-        if not os.path.isdir(self.resultsDir):
-            os.mkdir(self.resultsDir)
-
-        for file in self.files:
-            file_path = os.path.join(self.csvDir, file)
-            data = tc.read_csv(file_path, usecols=self.selectedDataColumns)
-            features = tc.extract_features(data, data_size=1000)
-            img = Image.fromarray(255 * features, 'L')
-            img.save("{}/test{}.png".format(self.resultsDir, self.parent.first_file))
+    def refresh(self):
+        self.HEADERS.pack_forget()
+        self.HEADERS = CheckBoxSet(self, self.parent.dataColumns)
+        self.HEADERS.pack()
 
     def __init__(self, parent):
         Frame.__init__(self, parent)
         self.parent = parent
+        self.LBL = Label(self)
+        self.LBL["text"] =  "                                      Instructions\n" \
+                            "\n" \
+                            "Select any columns you wish to exclude from the fourier transform.\n" \
+                            "Any columns that are not castable to a number will result in a crash.\n" \
+                            "Hint: make sure to exclude timestamps\n"
+        self.LBL.pack()
         self.HEADERS = CheckBoxSet(self, self.parent.dataColumns)
         self.HEADERS.pack()
         self.parent.updateExistingFiles()
@@ -151,34 +138,70 @@ class PickHeaders(Frame):
         self.GENFFTBUTTON.pack()
         self.pack()
 
-
-
 class FFTPreviewScreen(Frame):
     def __init__(self, parent):
         Frame.__init__(self, parent)
         self.parent = parent
+        self.LBL = Label(self)
+        self.LBL["text"] = "FFT Previews go here. Work in Progress..."
+        self.LBL.pack()
         self.pack()
 
 class ConfigureScreen(Frame):
+    def save(self):
+        print(self.parent.configFile)
+        fh = open(self.parent.configFile, 'w')
+        fh.write(self.CONFIG.get("1.0",END))
+        fh.close()
+        self.SAVEBUTTON.config(state=DISABLED)
+
+    def setDirty(self, event):
+        self.dirty = True
+        self.SAVEBUTTON.config(state=NORMAL)
+
     def __init__(self, parent):
         Frame.__init__(self, parent)
         self.parent = parent
-
-        self.configFile = self.parent.projectPath
-
+        self.dirty = False
+        self.parent.configFile = os.path.join(self.parent.projectPath, "timechange.cfg")
+        if not os.path.isfile(self.parent.configFile):
+            open(self.parent.configFile, 'a').close()
         self.CONFIG = Text(self)
-
+        fh = open(self.parent.configFile, 'r')
+        cfg = fh.read()
+        self.CONFIG.insert(END, cfg)
+        fh.close()
+        self.CONFIG.pack()
+        self.SAVEBUTTON = Button(self)
+        self.SAVEBUTTON["text"] = "Save"
+        self.SAVEBUTTON["command"] = self.save
+        self.SAVEBUTTON.config(state=DISABLED)
+        self.SAVEBUTTON.pack()
+        self.CONFIG.bind("<<Modified>>", self.setDirty)
         self.pack()
 
 class ResultsScreen(Frame):
     def __init__(self, parent):
         Frame.__init__(self, parent)
+        self.LBL = Label(self)
+        self.LBL["text"] = "Results go here. Work in Progress..."
+        self.LBL.pack()
         self.parent = parent
         self.pack()
 
 class ProjectHomeScreen(Frame):
     def __init__(self, parent):
         Frame.__init__(self, parent)
+        self.LBL = Label(self)
+        self.LBL["text"] =  "                              Welcome to TimeChange\n" \
+                            "\n" \
+                            "This project allows users to easily convert timeseries csv formatted\n" \
+                            "data into fourier transform images and classify them using existing\n" \
+                            "machine learning libraries without a deep knowledge of those tools.\n" \
+                            "\n" \
+                            "Begin starting with the next tab to load and label your csv files."
+
+        self.LBL.pack()
         self.parent = parent
         self.pack()
 
@@ -187,17 +210,19 @@ class Application(Frame):
         self.csvDir = os.path.join(self.projectPath, "csv")
         if not os.path.isdir(self.csvDir):
             os.mkdir(self.csvDir)
-        self.files = os.listdir(self.csvDir)
-        self.dataColumns = []
-        for file in self.files:
-            #self.EXISTINGFILES.insert("", "end", text=file)
-            if not self.dataColumns:
-                self.dataColumns = tc.get_csv_columns(os.path.join(self.csvDir, file))
-            else:
-                nextDataColumns = tc.get_csv_columns(os.path.join(self.csvDir, file))
-                if self.dataColumns != nextDataColumns:
-                    messagebox.showerror("Error", "Csv headers are inconsistent!")
-        self.selectedDataColumns = self.dataColumns
+        self.labels = os.listdir(self.csvDir)
+        for label in self.labels:
+            self.files = os.listdir(os.path.join(self.csvDir, label))
+            self.dataColumns = []
+            for file in self.files:
+                csvFile = os.path.join(self.csvDir, label, file)
+                if not self.dataColumns:
+                    self.dataColumns = self.tc.get_csv_columns(csvFile)
+                else:
+                    nextDataColumns = self.tc.get_csv_columns(csvFile)
+                    if self.dataColumns != nextDataColumns:
+                        messagebox.showerror("Error", "Csv headers are inconsistent!")
+            self.selectedDataColumns = self.dataColumns
 
     def loadProject(self, projectPath):
         self.projectPath = projectPath
@@ -217,15 +242,13 @@ class Application(Frame):
         self.notebook.add(self.ConfigureScreen, text="Configure Classifier")
         self.notebook.add(self.ResultsScreen, text="Results")
         self.notebook.pack()
+        self.PickHeadersScreen.refresh()
 
     def __init__(self, master=None):
         Frame.__init__(self, master)
-
         self.WelcomeScreen = WelcomeScreen(self)
         self.WelcomeScreen.pack()
-
         self.dataColumns = []
-
         self.pack()
 
 root = Tk()
