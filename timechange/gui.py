@@ -54,6 +54,68 @@ class WelcomeScreen(Frame):
         self.pack()
 
 class LoadFilesScreen(Frame):
+    def importFiles(self):
+        self.importFiles = filedialog.askopenfilenames(filetypes=[("Comma Seperated Values","*.csv")])
+        for importFile in self.importFiles:
+            basename = os.path.basename(importFile)
+            self.IMPORTFILES.insert("", "end", text=basename, values=("", importFile))
+
+    def selectTreeRow(self, event):
+        #messagebox.showerror("Error", "Editing labels not implemented yet")
+        selectedItems = self.IMPORTFILES.selection()
+        for selectedItem in selectedItems:
+            self.IMPORTFILES.set(selectedItem, column="Label", value=self.LABEL.get())
+
+    def addFiles(self):
+        for item in self.IMPORTFILES.get_children():
+            file = self.IMPORTFILES.item(item)["text"]
+            label = self.IMPORTFILES.item(item)["values"][0]
+            fullpath = self.IMPORTFILES.item(item)["values"][1]
+            tc.add_training_file(label, fullpath)
+        self.parent.updateExistingFiles()
+
+
+    def __init__(self, parent):
+        Frame.__init__(self, parent)
+        self.parent = parent
+
+        self.LABELLBL = Label(self)
+        self.LABELLBL["text"] = "Instructions: \n" \
+                                "Step 1) Click the \"Select Files\" button to select files from the filesystem\n" \
+                                "Step 2) Type a label into the following text box\n" \
+                                "Step 3) Click the files you want to apply this label to\n" \
+                                "Step 4) Repeat steps 2 and 3 until all files are labeled\n" \
+                                "Step 5) Click \"Add to Project\" button to add these labeled files to the project"
+        self.LABELLBL.pack()
+        self.LABEL = Entry(self)
+        self.LABEL.pack()
+
+        self.IMPORTFILESBUTTON = Button(self)
+        self.IMPORTFILESBUTTON["text"] = "Select Files"
+        self.IMPORTFILESBUTTON["command"] = self.importFiles
+        self.IMPORTFILESBUTTON.pack()
+
+        self.IMPORTFILES = Treeview(self, columns=('Label', 'fullpath'))
+        self.IMPORTFILES.heading('#0', text='File')
+        self.IMPORTFILES.heading('#1', text='Label')
+        self.IMPORTFILES.heading('#2', text='fullpath')
+        self.IMPORTFILES.column('#0', stretch=YES)
+        self.IMPORTFILES.column('#1', stretch=YES)
+        self.IMPORTFILES.column('#2', stretch=YES)
+        self.IMPORTFILES.bind("<<TreeviewSelect>>", self.selectTreeRow)
+        self.IMPORTFILES["displaycolumns"] = ("Label")
+
+        self.IMPORTFILES.pack()
+
+        self.ADDBUTTON = Button(self)
+        self.ADDBUTTON["text"] = "Add to Project"
+        self.ADDBUTTON["command"] = self.addFiles
+        self.ADDBUTTON.pack()
+
+
+        self.pack()
+
+class PickHeaders(Frame):
     def genFFT(self):
         checkBoxState = self.HEADERS.state()
         print(str(checkBoxState))
@@ -77,41 +139,19 @@ class LoadFilesScreen(Frame):
             img = Image.fromarray(255 * features, 'L')
             img.save("{}/test{}.png".format(self.resultsDir, self.parent.first_file))
 
-    def updateExistingFiles(self):
-        self.csvDir = os.path.join(self.parent.projectPath, "csv")
-        if not os.path.isdir(self.csvDir):
-            os.mkdir(self.csvDir)
-        self.files = os.listdir(self.csvDir)
-        self.dataColumns = []
-        for file in self.files:
-            self.EXISTINGFILES.insert("", "end", text=file)
-            if not self.dataColumns:
-                self.dataColumns = tc.get_csv_columns(os.path.join(self.csvDir, file))
-            else:
-                nextDataColumns = tc.get_csv_columns(os.path.join(self.csvDir, file))
-                if self.dataColumns != nextDataColumns:
-                    messagebox.showerror("Error", "Csv headers are inconsistent!")
-        self.selectedDataColumns = self.dataColumns
-    def importFiles(self):
-        messagebox.showerror("Error", "Importing files not implemented yet")
-
     def __init__(self, parent):
         Frame.__init__(self, parent)
         self.parent = parent
-        self.EXISTINGFILES = Treeview(self)
-        self.EXISTINGFILES.pack()
-        self.updateExistingFiles()
-        self.HEADERS = CheckBoxSet(self, self.dataColumns)
+        self.HEADERS = CheckBoxSet(self, self.parent.dataColumns)
         self.HEADERS.pack()
-        self.IMPORTFILESBUTTON = Button(self)
-        self.IMPORTFILESBUTTON["text"] = "Import Files"
-        self.IMPORTFILESBUTTON["command"] = self.importFiles
-        self.IMPORTFILESBUTTON.pack()
+        self.parent.updateExistingFiles()
         self.GENFFTBUTTON = Button(self)
         self.GENFFTBUTTON["text"] = "Generate FFT"
         self.GENFFTBUTTON["command"] = self.genFFT
         self.GENFFTBUTTON.pack()
         self.pack()
+
+
 
 class FFTPreviewScreen(Frame):
     def __init__(self, parent):
@@ -123,6 +163,11 @@ class ConfigureScreen(Frame):
     def __init__(self, parent):
         Frame.__init__(self, parent)
         self.parent = parent
+
+        self.configFile = self.parent.projectPath
+
+        self.CONFIG = Text(self)
+
         self.pack()
 
 class ResultsScreen(Frame):
@@ -138,17 +183,36 @@ class ProjectHomeScreen(Frame):
         self.pack()
 
 class Application(Frame):
+    def updateExistingFiles(self):
+        self.csvDir = os.path.join(self.projectPath, "csv")
+        if not os.path.isdir(self.csvDir):
+            os.mkdir(self.csvDir)
+        self.files = os.listdir(self.csvDir)
+        self.dataColumns = []
+        for file in self.files:
+            #self.EXISTINGFILES.insert("", "end", text=file)
+            if not self.dataColumns:
+                self.dataColumns = tc.get_csv_columns(os.path.join(self.csvDir, file))
+            else:
+                nextDataColumns = tc.get_csv_columns(os.path.join(self.csvDir, file))
+                if self.dataColumns != nextDataColumns:
+                    messagebox.showerror("Error", "Csv headers are inconsistent!")
+        self.selectedDataColumns = self.dataColumns
+
     def loadProject(self, projectPath):
         self.projectPath = projectPath
         self.WelcomeScreen.pack_forget()
+        self.updateExistingFiles()
         self.notebook = Notebook(self)
         self.ProjectHomeScreen = ProjectHomeScreen(self)
         self.LoadFilesScreen = LoadFilesScreen(self)
+        self.PickHeadersScreen = PickHeaders(self)
         self.FFTPreviewScreen = FFTPreviewScreen(self)
         self.ConfigureScreen = ConfigureScreen(self)
         self.ResultsScreen = ResultsScreen(self)
         self.notebook.add(self.ProjectHomeScreen, text="Home")
         self.notebook.add(self.LoadFilesScreen, text="Load Files")
+        self.notebook.add(self.PickHeadersScreen, text="Pick Headers")
         self.notebook.add(self.FFTPreviewScreen, text="FFT Preview")
         self.notebook.add(self.ConfigureScreen, text="Configure Classifier")
         self.notebook.add(self.ResultsScreen, text="Results")
@@ -160,6 +224,7 @@ class Application(Frame):
         self.WelcomeScreen = WelcomeScreen(self)
         self.WelcomeScreen.pack()
 
+        self.dataColumns = []
 
         self.pack()
 
