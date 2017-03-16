@@ -45,7 +45,7 @@ from keras.preprocessing.image import ImageDataGenerator
 class TimeChange:
     def __init__(self, project_name="default", parent_folder=None):
         """Constructor
-        throws exception if failure to load occurs
+        raises RuntimeError the project fails to either save or load
         """
         #TODO:better default name to avoid collision 
         #Store the project's name
@@ -54,7 +54,7 @@ class TimeChange:
         if parent_folder is None:
             parent_folder = os.path.expanduser("~/timechange")
         #Stores where the project profile will be kept
-        self.project_path = os.path.join(parent_folder, project_name)
+        self.project_path = os.path.abspath(os.path.join(parent_folder, project_name))
         #Create the project parent folder if necessary
         #If not, assume the project already exists
         if not os.path.exists(self.project_path):
@@ -66,43 +66,37 @@ class TimeChange:
             os.mkdir(os.path.join(self.project_path, "models"))
         else:
             #Existing project
-            #Check if csv directory exists
-            if os.path.exists(os.path.join(self.project_path, "csv")):
-                #Check if all files in that folder are csv files
-                for label in os.scandir(os.path.join(self.project_path, "csv")):
-                    for entry in os.scandir(os.path.join(self.project_path, "csv", label.name)):
-                        if not entry.name.endswith("csv"):
-                            raise RuntimeError("{} is not a csv file".format(os.path.join(self.project_path, "csv", entry.name)))
-            else:
-                #CSV directory does not exist
-                raise RuntimeError("{} cannot be a timechange project because {} does not exist".format(
-                    self.project_path,
-                    os.path.join(self.project_path, "csv")))
-            #Check if images directory exists
-            if os.path.exists(os.path.join(self.project_path, "images")):
-                #Check if all files in that folder are csv files
-                for label in os.scandir(os.path.join(self.project_path, "images")):
-                    for entry in os.scandir(os.path.join(self.project_path, "images", label.name)):
-                        #TODO: allow other extensions
-                        if not entry.name.endswith("png"):
-                            raise RuntimeError("{} is not a png file".format(os.path.join(self.project_path, "images", entry.name)))
-            else:
-                #Image directory does not exist
-                raise RuntimeError("{} cannot be a timechange project because {} does not exist".format(
-                    self.project_path,
-                    os.path.join(self.project_path, "images")))
-            #Check if images directory exists
-            if os.path.exists(os.path.join(self.project_path, "models")):
-                #Check if all files in that folder are csv files
-                for label in os.scandir(os.path.join(self.project_path, "models")):
-                    for entry in os.scandir(os.path.join(self.project_path, "models", label.name)):
-                        if not entry.name.endswith("h5"):
-                            raise RuntimeError("{} is not an h5 file".format(os.path.join(self.project_path, "models", entry.name)))
-            else:
-                #Image directory does not exist
-                raise RuntimeError("{} cannot be a timechange project because {} does not exist".format(
-                    self.project_path,
-                    os.path.join(self.project_path, "models")))
+            #Folder names and the file types within them
+            folder_structure = {'csv':'csv', 'images':'png', 'models':'h5'}
+            #Iterate over folder structure
+            for folder_name, file_type in folder_structure.items():
+                #Check if directory exists
+                if os.path.exists(os.path.join(self.project_path, folder_name)):
+                    #Check if all files in that folder are csv files
+                    for label in os.scandir(os.path.join(self.project_path, folder_name)):
+                        #So this works on 1 and 2-layer folders
+                        try:
+                            #Scan subdirectories
+                            for entry in os.scandir(os.path.join(self.project_path, folder_name, label.name)):
+                                #TODO: allow other extensions for ex: image
+                                if not entry.name.endswith(file_type):
+                                    raise RuntimeError("{} is not a {} file".format(
+                                        os.path.join(self.project_path, folder_name, entry.name),
+                                        file_type))
+                        except NotADirectoryError:
+                            #Scan subfiles
+                            #TODO: allow other extensions for ex: image
+                            if not label.name.endswith(file_type):
+                                raise RuntimeError("{} is not a {} file".format(
+                                    os.path.join(self.project_path, folder_name, label.name),
+                                    file_type))
+
+                else:
+                    #directory does not exist
+                    raise RuntimeError("{} cannot be a timechange project because {} does not exist".format(
+                        self.project_path,
+                        os.path.join(self.project_path, folder_name)))
+
         #Stores what csv columns to use
         #TODO: store this value in a file instead of as a private member
         self.columns = None #Default values
@@ -148,7 +142,7 @@ class TimeChange:
         Returns: A list of column names from the csv file
         """
         return list(pandas.read_csv(file_path, nrows=1, *args, **kwargs).columns)
-    def convert_csv(self, input_file_path, method="fft", chunk_size=32, output_file_path=None):
+    def convert_csv(self, input_file_path, method="fft", chunk_size=64, data_length=None, output_file_path=None):
         """Reads a csv file and returns the column names
         Preconditions: self.columns is set or the user wants to use all csv columns 
         Keyword arguments:
@@ -161,25 +155,27 @@ class TimeChange:
         if self.columns is None:
             self.columns = self.get_csv_columns(input_file_path)
         # Set default file_path if no argument specified
+        # TODO: fix this to be more in line with the rest of the project structure
         if output_file_path is None:
             input_path = os.path.split(input_file_path)
             input_path[-1] = "converted_{}.png".format(input_path[-1])
             output_file_path = os.path.join(input_path)
         # Read the csv into a numpy array
         data = pandas.read_csv(input_file_path, usecols=self.columns).as_matrix().T
+        # Handle padding.
+        if data_length is not None:
+            pad_amount = data_length - data.shape[1]
+            data = np.pad(data, ((0,0), (0, pad_amount)), 'constant', constant_values=0.0)
         # Extract features from the numpy array
         # Uses same variable name since data is not needed after feature extraction
-        data = transform.extract(data, method=method)
+        data = transform.extract(data, method=method, chunk_size=chunk_size)
         # Generate an image from the resulting feature representation
-        img = Image.fromarray(data * 255, "L")
+        img = Image.fromarray((data * 255).astype(np.uint8), "RGB")
         #Save the image to the desired file path
         img.save(output_file_path)
         #Return the image's size
         return img.size
-        data = transform.extract(data, method, data_size=chunk_size)
-        # Generate an image from the resulting feature representation
-        return Image.fromarray(data * 255, "L").save(output_file_path)
-    def convert_all_csv(self, method=None, chunk_size=32):
+    def convert_all_csv(self, method=None, chunk_size=64):
         """Iterates over the training files set and generates corresponding images
         using the feature extraction method
         Keyword arguments:
@@ -189,7 +185,8 @@ class TimeChange:
         #Set a default method if none is set
         if method is None:
             method = self.default_method
-        #Clear contents of image folder without deleting folder
+        #Clear subfolders in image folder without deleting images folder
+        #TODO: caching
         for label in os.scandir(os.path.join(self.project_path, "images")):
             #Get file path from direntry
             label = os.path.abspath(label.path)
@@ -199,6 +196,15 @@ class TimeChange:
                 pass
         #Store the number of data samples
         self.num_samples = 0
+        #Get length of longest csv file
+        self.csv_length = 0
+        #Iterate over labels
+        for label in self.get_labels():
+            #Iterate over a label's csv files
+            for csv_file in os.scandir(os.path.join(self.project_path, "csv", label)):
+                with open(csv_file.path, 'r') as csv_file_handle:
+                    #Get number of lines in file and keep track of longest file
+                    self.csv_length = max(self.csv_length, len(csv_file_handle.readlines()))
         #Generate new images
         #Iterate over labels
         for label in self.get_labels():
@@ -206,20 +212,22 @@ class TimeChange:
             os.mkdir(os.path.join(self.project_path, "images", label))
             #Iterate over a label's csv files
             for csv_file in os.scandir(os.path.join(self.project_path, "csv", label)):
-                #Double check files is a csv file
-                if not csv_file.name.lower().endswith(".csv"):
-                    pass
                 #Generate an image name from the original file's name
                 #Removes csv and adds png
                 new_name = '.'.join(csv_file.name.split('.')[:-1] + ['png'])
-                #TODO: make all images the same size
+                #TODO: make all csv files the same size by padding 0s to the smaller files
                 #Generate the image file
                 #Store the size of the image
                 #TODO: Store this in a config file
-                self.image_size = self.convert_csv(os.path.abspath(csv_file.path), method=method, chunk_size=chunk_size, output_file_path=os.path.join(self.project_path, "images", label, new_name))
+                self.image_size = self.convert_csv(
+                        csv_file.path,
+                        method=method,
+                        chunk_size=chunk_size,
+                        data_length = self.csv_length,
+                        output_file_path=os.path.join(self.project_path, "images", label, new_name))
                 #Increment the number of samples
                 self.num_samples += 1
-    def train(self, num_epochs=1):
+    def train(self, num_epochs=10):
         """Trains a neural net model on the project's dataset
         Preconditions: A Keras model is stored to self.model,
                        convert_all_csv(...) has been run and has generated images for training
@@ -231,7 +239,7 @@ class TimeChange:
                 ).flow_from_directory(
                 os.path.join(self.project_path, 'images'), #Read training data from the project's images dir
                 target_size=self.image_size, #Resize must be set or the generator will automatically choose dimensions
-                color_mode='grayscale', #TODO: take another look at this
+                color_mode='rgb', #TODO: take another look at this
                 batch_size=64, #TODO: customize this
                 shuffle=True, #Shuffle the data inputs. TODO: set a random seed
                 class_mode="categorical") #TODO: consider binary mode for systems with only 2 labels

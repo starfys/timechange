@@ -53,9 +53,9 @@ VALIDATION_DATA_FOLDER = os.path.join(PROJECT_PARENT, "VALIDATION_DATA")
 """Sample dataset parameters
 """
 #Number of training samples per category
-NUM_TRAINING_SAMPLES = 1000
+NUM_TRAINING_SAMPLES = 1500
 #Number of rows per training sample
-NUM_TRAINING_ROWS = 1000
+MAX_TRAINING_ROWS = 1000
 #Number of columns per training sample
 NUM_TRAINING_COLUMNS = 3
 #Bounds and parameters for sample waves
@@ -68,7 +68,11 @@ SAMPLE_FREQUENCY_MAX = 10
 SAMPLE_SHIFT_MIN = -10
 SAMPLE_SHIFT_MAX = 10
 #Number of samples to validate per category
-NUM_VALIDATION_SAMPLES = 100
+NUM_VALIDATION_SAMPLES = 1000
+#Parameters for data conversion
+CONVERT_CHUNK_SIZE=64
+#Metaparameters for training
+NUM_EPOCHS=15
 
 #Delete the test project from previous iterations (if it exists)
 try:
@@ -89,9 +93,6 @@ else:
     print("Generating sample training data")
     for wave_type in ("sine","square","sawtooth"):
         os.makedirs(os.path.join(SAMPLE_DATA_FOLDER, wave_type))
-    #CSV header. Columns named by numbers (very creative)
-    #Space to create the waves over
-    wave_space = np.linspace(SAMPLE_LEFT_BOUND, SAMPLE_RIGHT_BOUND, NUM_TRAINING_ROWS, endpoint=True, dtype=np.float32)
     #Used to display progress
     last_progress = 0
     progress_step = NUM_TRAINING_SAMPLES // 10
@@ -103,7 +104,10 @@ else:
             GENERATE SINE WAVE
         """
         columns = []
+        #Generate a random-length wave space;
+        wave_space = np.linspace(SAMPLE_LEFT_BOUND, SAMPLE_RIGHT_BOUND, np.random.randint(1, MAX_TRAINING_ROWS), endpoint=True, dtype=np.float32)
         for _ in range(NUM_TRAINING_COLUMNS):
+            #Generate a wave
             columns.append(np.random.uniform(SAMPLE_AMPLITUDE_MIN, SAMPLE_AMPLITUDE_MAX) *
                     np.sin(np.random.uniform(SAMPLE_FREQUENCY_MIN, SAMPLE_FREQUENCY_MAX) * (wave_space - 
                         np.random.uniform(SAMPLE_SHIFT_MIN, SAMPLE_SHIFT_MAX))))
@@ -114,7 +118,10 @@ else:
             GENERATE SQUARE WAVE
         """
         columns = []
+        #Generate a random-length wave space;
+        wave_space = np.linspace(SAMPLE_LEFT_BOUND, SAMPLE_RIGHT_BOUND, np.random.randint(1, MAX_TRAINING_ROWS), endpoint=True, dtype=np.float32)
         for _ in range(NUM_TRAINING_COLUMNS):
+            #Generate a wave
             columns.append(np.random.uniform(SAMPLE_AMPLITUDE_MIN, SAMPLE_AMPLITUDE_MAX) *
                     signal.square(np.random.uniform(SAMPLE_FREQUENCY_MIN, SAMPLE_FREQUENCY_MAX) * (wave_space - 
                         np.random.uniform(SAMPLE_SHIFT_MIN, SAMPLE_SHIFT_MAX))))
@@ -125,6 +132,8 @@ else:
             GENERATE SAWTOOTH WAVE
         """
         columns = []
+        #Generate a random-length wave space;
+        wave_space = np.linspace(SAMPLE_LEFT_BOUND, SAMPLE_RIGHT_BOUND, np.random.randint(1, MAX_TRAINING_ROWS), endpoint=True, dtype=np.float32)
         for _ in range(NUM_TRAINING_COLUMNS):
             columns.append(np.random.uniform(SAMPLE_AMPLITUDE_MIN, SAMPLE_AMPLITUDE_MAX) *
                     signal.sawtooth(np.random.uniform(SAMPLE_FREQUENCY_MIN, SAMPLE_FREQUENCY_MAX) * (wave_space - 
@@ -167,9 +176,10 @@ time_change.column = schema.split(',')
 print("The labels read in were: {}".format(','.join(time_change.get_labels())))
 #Generate the images
 try:
-    time_change.convert_all_csv()
+    time_change.convert_all_csv(chunk_size=CONVERT_CHUNK_SIZE)
     result = "SUCCESS"
 except:
+    traceback.print_exc()
     result = "FAILURE"
 print("Converting CSV files into feature images: {}".format(result))
 print("{} images generated".format(time_change.num_samples))
@@ -178,45 +188,45 @@ print("{} images generated".format(time_change.num_samples))
 from keras.models import Sequential
 from keras.layers import Convolution2D, MaxPooling2D
 from keras.layers import Activation, Dropout, Flatten, Dense
+from keras.optimizers import SGD
 #First layer
 model = Sequential()
-model.add(Convolution2D(32, 3, 3, input_shape=(1, *time_change.image_size)))
-model.add(Activation('relu'))
+model.add(Convolution2D(32, 5, 5, input_shape=(3, *time_change.image_size), activation='relu'))
 model.add(MaxPooling2D(pool_size=(2, 2)))
 #Second layer
-model.add(Convolution2D(32, 3, 3))
-model.add(Activation('relu'))
+model.add(Convolution2D(32, 3, 3, activation='relu'))
 model.add(MaxPooling2D(pool_size=(2, 2)))
+#Third layer
+model.add(Convolution2D(64, 3, 3, activation='relu'))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+
 #Flattening layer
 model.add(Flatten())  # this converts our 3D feature maps to 1D feature vectors
-model.add(Dense(64))
-model.add(Activation('relu'))
-model.add(Dropout(0.5)) #Dropout layers help to reduce overfitting
+model.add(Dense(64, activation='relu'))
+model.add(Dropout(0.3)) #Dropout layers help to reduce overfitting
 model.add(Dense(len(time_change.get_labels()))) #Number of outputs corresponds to number of labels
 model.add(Activation('softmax'))
+#sgd = SGD(lr=1e-2, decay=1e-6, momentum=0.9, nesterov=True)
 model.compile(loss='categorical_crossentropy',
               optimizer='rmsprop',
               metrics=['accuracy'])
 time_change.model = model
-time_change.train(num_epochs=10)
+time_change.train(num_epochs=NUM_EPOCHS)
 #Save the generated model
 time_change.save_model()
 
 #Generate a small test set
 #TODO: modularize this so it's not so copy-paste
-print("Generating sample validatoin data")
+print("Generating sample validation data")
 for wave_type in ("sine","square","sawtooth"):
     try:
         os.makedirs(os.path.join(VALIDATION_DATA_FOLDER, wave_type))
     except FileExistsError as exc:
         pass
-#CSV header. Columns named by numbers (very creative)
-#Space to create the waves over
-wave_space = np.linspace(SAMPLE_LEFT_BOUND, SAMPLE_RIGHT_BOUND, NUM_TRAINING_ROWS, endpoint=True, dtype=np.float32)
 #Used to display progress
 last_progress = 0
 progress_step = NUM_VALIDATION_SAMPLES // 10
-#Generate the training data
+#Generate the validation data
 for sample_num in range(NUM_VALIDATION_SAMPLES):
     #Generate a sample file name. Used for all waves because they"re sorted by folder
     sample_file_name = "SAMPLE_{0:05d}.csv".format(sample_num)
@@ -224,31 +234,40 @@ for sample_num in range(NUM_VALIDATION_SAMPLES):
         GENERATE SINE WAVE
     """
     columns = []
+    #Generate a random-length wave space;
+    wave_space = np.linspace(SAMPLE_LEFT_BOUND, SAMPLE_RIGHT_BOUND, np.random.randint(1, MAX_TRAINING_ROWS), endpoint=True, dtype=np.float32)
     for _ in range(NUM_TRAINING_COLUMNS):
+        #Generate a wave
         columns.append(np.random.uniform(SAMPLE_AMPLITUDE_MIN, SAMPLE_AMPLITUDE_MAX) *
                 np.sin(np.random.uniform(SAMPLE_FREQUENCY_MIN, SAMPLE_FREQUENCY_MAX) * (wave_space - 
                     np.random.uniform(SAMPLE_SHIFT_MIN, SAMPLE_SHIFT_MAX))))
     #Convert list to numpy array, transpose it, and save to file
     columns = np.array(columns).T 
     np.savetxt(os.path.join(VALIDATION_DATA_FOLDER, "sine", sample_file_name), columns, delimiter=",", header=schema, comments="")
-    time_change.convert_csv(os.path.join(VALIDATION_DATA_FOLDER, "sine", sample_file_name), output_file_path=os.path.join(VALIDATION_DATA_FOLDER, "sine", "{}.png".format(sample_file_name))) 
+    time_change.convert_csv(os.path.join(VALIDATION_DATA_FOLDER, "sine", sample_file_name), chunk_size=CONVERT_CHUNK_SIZE, output_file_path=os.path.join(VALIDATION_DATA_FOLDER, "sine", "{}.png".format(sample_file_name))) 
     """
         GENERATE SQUARE WAVE
     """
     columns = []
+    #Generate a random-length wave space;
+    wave_space = np.linspace(SAMPLE_LEFT_BOUND, SAMPLE_RIGHT_BOUND, np.random.randint(1, MAX_TRAINING_ROWS), endpoint=True, dtype=np.float32)
     for _ in range(NUM_TRAINING_COLUMNS):
+        #Generate a wave
         columns.append(np.random.uniform(SAMPLE_AMPLITUDE_MIN, SAMPLE_AMPLITUDE_MAX) *
                 signal.square(np.random.uniform(SAMPLE_FREQUENCY_MIN, SAMPLE_FREQUENCY_MAX) * (wave_space - 
                     np.random.uniform(SAMPLE_SHIFT_MIN, SAMPLE_SHIFT_MAX))))
     #Convert list to numpy array, transpose it, and save to file
     columns = np.array(columns).T 
     np.savetxt(os.path.join(VALIDATION_DATA_FOLDER, "square", sample_file_name), columns, delimiter=",", header=schema, comments="")
-    time_change.convert_csv(os.path.join(VALIDATION_DATA_FOLDER, "square", sample_file_name), output_file_path=os.path.join(VALIDATION_DATA_FOLDER, "square", "{}.png".format(sample_file_name))) 
+    time_change.convert_csv(os.path.join(VALIDATION_DATA_FOLDER, "square", sample_file_name), chunk_size=CONVERT_CHUNK_SIZE, output_file_path=os.path.join(VALIDATION_DATA_FOLDER, "square", "{}.png".format(sample_file_name))) 
     """
         GENERATE SAWTOOTH WAVE
     """
     columns = []
+    #Generate a random-length wave space;
+    wave_space = np.linspace(SAMPLE_LEFT_BOUND, SAMPLE_RIGHT_BOUND, np.random.randint(1, MAX_TRAINING_ROWS), endpoint=True, dtype=np.float32)
     for _ in range(NUM_TRAINING_COLUMNS):
+        #Generate a wave
         columns.append(np.random.uniform(SAMPLE_AMPLITUDE_MIN, SAMPLE_AMPLITUDE_MAX) *
                 signal.sawtooth(np.random.uniform(SAMPLE_FREQUENCY_MIN, SAMPLE_FREQUENCY_MAX) * (wave_space - 
                     np.random.uniform(SAMPLE_SHIFT_MIN, SAMPLE_SHIFT_MAX))))
@@ -256,7 +275,7 @@ for sample_num in range(NUM_VALIDATION_SAMPLES):
     columns = np.array(columns).T 
     np.savetxt(os.path.join(VALIDATION_DATA_FOLDER, "sawtooth", sample_file_name), columns, delimiter=",", header=schema, comments="")
     #Convert the csv file to an image
-    time_change.convert_csv(os.path.join(VALIDATION_DATA_FOLDER, "sawtooth", sample_file_name), output_file_path=os.path.join(VALIDATION_DATA_FOLDER, "sawtooth", "{}.png".format(sample_file_name))) 
+    time_change.convert_csv(os.path.join(VALIDATION_DATA_FOLDER, "sawtooth", sample_file_name), chunk_size=CONVERT_CHUNK_SIZE, output_file_path=os.path.join(VALIDATION_DATA_FOLDER, "sawtooth", "{}.png".format(sample_file_name))) 
     #Print progress
     if (sample_num - progress_step) >= last_progress:
         print("Generating validation samples: {}% done".format((sample_num / NUM_VALIDATION_SAMPLES) * 100))
@@ -270,7 +289,7 @@ validation_generator = ImageDataGenerator(
         ).flow_from_directory(
         VALIDATION_DATA_FOLDER, #Read training data from generated validation data folder
         target_size=time_change.image_size, #Resize must be set or the generator will automatically choose dimensions
-        color_mode='grayscale', #TODO: take another look at this
+        color_mode='rgb', #TODO: take another look at this
         batch_size=32, #TODO: customize this
         shuffle=False, #No need to shuffle
         class_mode="categorical") #TODO: consider binary mode for systems with only 2 labels
