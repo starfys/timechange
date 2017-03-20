@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 
+import sys
 import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 from tkinter import *
 from tkinter.ttk import *
 from tkinter import messagebox
 from tkinter import filedialog
-sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+import configparser
+
 import timechange
+from PIL import Image
+
+tc = timechange.TimeChange()
 
 class CheckBoxSet(Frame):
     def __init__(self, parent, picks=[], side=LEFT, anchor=W):
@@ -23,28 +29,24 @@ class CheckBoxSet(Frame):
         return self.items
 
 class WelcomeScreen(Frame):
-    def defaultProject(self):
-        self.parent.tc = timechange.TimeChange()
-        projectDir = os.path.join(os.path.expanduser('~'), 'timechange', 'default')
-        self.parent.loadProject(projectDir)
+    def createProject(selfs):
+        messagebox.showerror("Error", "Creating new projects not implemented yet")
 
     def loadProject(self):
         projectDir = filedialog.askdirectory(initialdir=os.path.expanduser("~"))
-        dirname = os.path.dirname(os.path.realpath(projectDir))
-        basename = os.path.basename(os.path.realpath(projectDir))
-        try:
-            self.parent.tc = timechange.TimeChange(project_name=basename, parent_folder=dirname)
+        configFile = os.path.join(projectDir, "timechange.cfg")
+        if os.path.isfile(configFile):
             self.parent.loadProject(projectDir)
-        except:
+        else:
             messagebox.showerror("Error", "%s is an invalid project directory" % projectDir)
 
     def __init__(self, parent):
         Frame.__init__(self, parent)
         self.parent = parent
-        self.DEFAULTBUTTON = Button(self)
-        self.DEFAULTBUTTON["text"] = "Default Project"
-        self.DEFAULTBUTTON["command"] = self.defaultProject
-        self.DEFAULTBUTTON.pack()
+        self.CREATENEWBUTTON = Button(self)
+        self.CREATENEWBUTTON["text"] = "Create New Project"
+        self.CREATENEWBUTTON["command"] = self.createProject
+        self.CREATENEWBUTTON.pack()
         self.LOADEXISTINGBUTTON = Button(self)
         self.LOADEXISTINGBUTTON["text"] = "Load Existing Project"
         self.LOADEXISTINGBUTTON["command"] = self.loadProject
@@ -52,86 +54,59 @@ class WelcomeScreen(Frame):
         self.pack()
 
 class LoadFilesScreen(Frame):
-    def importFiles(self):
-        self.importFiles = filedialog.askopenfilenames(filetypes=[("Comma Seperated Values","*.csv")])
-        for importFile in self.importFiles:
-            basename = os.path.basename(importFile)
-            self.IMPORTFILES.insert("", "end", text=basename, values=("", importFile))
-
-    def selectTreeRow(self, event):
-        selectedItems = self.IMPORTFILES.selection()
-        for selectedItem in selectedItems:
-            self.IMPORTFILES.set(selectedItem, column="Label", value=self.LABEL.get())
-
-    def addFiles(self):
-        for item in self.IMPORTFILES.get_children():
-            file = self.IMPORTFILES.item(item)["text"]
-            label = self.IMPORTFILES.item(item)["values"][0]
-            fullpath = self.IMPORTFILES.item(item)["values"][1]
-            self.parent.tc.add_training_file(label, fullpath)
-        self.parent.updateExistingFiles()
-
-    def __init__(self, parent):
-        Frame.__init__(self, parent)
-        self.parent = parent
-        self.LABELLBL = Label(self)
-        self.LABELLBL["text"] = "                                            Instructions: \n" \
-                                "Step 1) Click the \"Select Files\" button to select files from the filesystem\n" \
-                                "Step 2) Type a label into the following text box\n" \
-                                "Step 3) Click the files you want to apply this label to\n" \
-                                "Step 4) Repeat steps 2 and 3 until all files are labeled\n" \
-                                "Step 5) Click \"Add to Project\" button to add these labeled files to the project"
-        self.LABELLBL.pack()
-        self.LABEL = Entry(self)
-        self.LABEL.pack()
-        self.IMPORTFILESBUTTON = Button(self)
-        self.IMPORTFILESBUTTON["text"] = "Select Files"
-        self.IMPORTFILESBUTTON["command"] = self.importFiles
-        self.IMPORTFILESBUTTON.pack()
-        self.IMPORTFILES = Treeview(self, columns=('Label', 'fullpath'))
-        self.IMPORTFILES.heading('#0', text='File')
-        self.IMPORTFILES.heading('#1', text='Label')
-        self.IMPORTFILES.heading('#2', text='fullpath')
-        self.IMPORTFILES.column('#0', stretch=YES)
-        self.IMPORTFILES.column('#1', stretch=YES)
-        self.IMPORTFILES.column('#2', stretch=YES)
-        self.IMPORTFILES.bind("<<TreeviewSelect>>", self.selectTreeRow)
-        self.IMPORTFILES["displaycolumns"] = ("Label")
-        self.IMPORTFILES.pack()
-        self.ADDBUTTON = Button(self)
-        self.ADDBUTTON["text"] = "Add to Project"
-        self.ADDBUTTON["command"] = self.addFiles
-        self.ADDBUTTON.pack()
-        self.pack()
-
-class PickHeaders(Frame):
     def genFFT(self):
         checkBoxState = self.HEADERS.state()
+        print(str(checkBoxState))
+
         self.selectedDataColumns = []
         for key in checkBoxState:
            if checkBoxState[key] == 0:
                 self.selectedDataColumns.append(key)
-        self.parent.tc.columns=self.selectedDataColumns
-        self.parent.tc.convert_all_csv()
 
-    def refresh(self):
-        self.HEADERS.pack_forget()
-        self.HEADERS = CheckBoxSet(self, self.parent.dataColumns)
-        self.HEADERS.pack()
+        self.dataDir = os.path.join(self.parent.projectPath, "data")
+        self.resultsDir = os.path.join(self.dataDir, "results")
+        if not os.path.isdir(self.dataDir):
+            os.mkdir(self.dataDir)
+        if not os.path.isdir(self.resultsDir):
+            os.mkdir(self.resultsDir)
+
+        for file in self.files:
+            file_path = os.path.join(self.csvDir, file)
+            data = tc.read_csv(file_path, usecols=self.selectedDataColumns)
+            features = tc.extract_features(data, data_size=1000)
+            img = Image.fromarray(255 * features, 'L')
+            img.save("{}/test{}.png".format(self.resultsDir, self.parent.first_file))
+
+    def updateExistingFiles(self):
+        self.csvDir = os.path.join(self.parent.projectPath, "csv")
+        if not os.path.isdir(self.csvDir):
+            os.mkdir(self.csvDir)
+        self.files = os.listdir(self.csvDir)
+        self.dataColumns = []
+        for file in self.files:
+            self.EXISTINGFILES.insert("", "end", text=file)
+            if not self.dataColumns:
+                self.dataColumns = tc.get_csv_columns(os.path.join(self.csvDir, file))
+            else:
+                nextDataColumns = tc.get_csv_columns(os.path.join(self.csvDir, file))
+                if self.dataColumns != nextDataColumns:
+                    messagebox.showerror("Error", "Csv headers are inconsistent!")
+        self.selectedDataColumns = self.dataColumns
+    def importFiles(self):
+        messagebox.showerror("Error", "Importing files not implemented yet")
 
     def __init__(self, parent):
         Frame.__init__(self, parent)
         self.parent = parent
-        self.LBL = Label(self)
-        self.LBL["text"] =  "                                      Instructions\n" \
-                            "\n" \
-                            "Select any columns you wish to exclude from the fourier transform.\n" \
-                            "Any columns that are not castable to a number will result in a crash.\n" \
-                            "Hint: make sure to exclude timestamps\n"
-        self.LBL.pack()
-        self.HEADERS = CheckBoxSet(self, self.parent.dataColumns)
+        self.EXISTINGFILES = Treeview(self)
+        self.EXISTINGFILES.pack()
+        self.updateExistingFiles()
+        self.HEADERS = CheckBoxSet(self, self.dataColumns)
         self.HEADERS.pack()
-        self.parent.updateExistingFiles()
+        self.IMPORTFILESBUTTON = Button(self)
+        self.IMPORTFILESBUTTON["text"] = "Import Files"
+        self.IMPORTFILESBUTTON["command"] = self.importFiles
+        self.IMPORTFILESBUTTON.pack()
         self.GENFFTBUTTON = Button(self)
         self.GENFFTBUTTON["text"] = "Generate FFT"
         self.GENFFTBUTTON["command"] = self.genFFT
@@ -142,113 +117,148 @@ class FFTPreviewScreen(Frame):
     def __init__(self, parent):
         Frame.__init__(self, parent)
         self.parent = parent
-        self.LBL = Label(self)
-        self.LBL["text"] = "FFT Previews go here. Work in Progress..."
-        self.LBL.pack()
         self.pack()
 
 class ConfigureScreen(Frame):
-    def save(self):
-        print(self.parent.configFile)
-        fh = open(self.parent.configFile, 'w')
-        fh.write(self.CONFIG.get("1.0",END))
-        fh.close()
-        self.SAVEBUTTON.config(state=DISABLED)
-
-    def setDirty(self, event):
-        self.dirty = True
-        self.SAVEBUTTON.config(state=NORMAL)
-
     def __init__(self, parent):
         Frame.__init__(self, parent)
         self.parent = parent
-        self.dirty = False
-        self.parent.configFile = os.path.join(self.parent.projectPath, "timechange.cfg")
-        if not os.path.isfile(self.parent.configFile):
-            open(self.parent.configFile, 'a').close()
-        self.CONFIG = Text(self)
-        fh = open(self.parent.configFile, 'r')
-        cfg = fh.read()
-        self.CONFIG.insert(END, cfg)
-        fh.close()
-        self.CONFIG.pack()
-        self.SAVEBUTTON = Button(self)
-        self.SAVEBUTTON["text"] = "Save"
-        self.SAVEBUTTON["command"] = self.save
-        self.SAVEBUTTON.config(state=DISABLED)
-        self.SAVEBUTTON.pack()
-        self.CONFIG.bind("<<Modified>>", self.setDirty)
         self.pack()
 
 class ResultsScreen(Frame):
     def __init__(self, parent):
         Frame.__init__(self, parent)
-        self.LBL = Label(self)
-        self.LBL["text"] = "Results go here. Work in Progress..."
-        self.LBL.pack()
         self.parent = parent
         self.pack()
 
 class ProjectHomeScreen(Frame):
     def __init__(self, parent):
         Frame.__init__(self, parent)
-        self.LBL = Label(self)
-        self.LBL["text"] =  "                              Welcome to TimeChange\n" \
-                            "\n" \
-                            "This project allows users to easily convert timeseries csv formatted\n" \
-                            "data into fourier transform images and classify them using existing\n" \
-                            "machine learning libraries without a deep knowledge of those tools.\n" \
-                            "\n" \
-                            "Begin starting with the next tab to load and label your csv files."
-
-        self.LBL.pack()
         self.parent = parent
         self.pack()
 
-class Application(Frame):
-    def updateExistingFiles(self):
-        self.csvDir = os.path.join(self.projectPath, "csv")
-        if not os.path.isdir(self.csvDir):
-            os.mkdir(self.csvDir)
-        self.labels = os.listdir(self.csvDir)
-        for label in self.labels:
-            self.files = os.listdir(os.path.join(self.csvDir, label))
-            self.dataColumns = []
-            for file in self.files:
-                csvFile = os.path.join(self.csvDir, label, file)
-                if not self.dataColumns:
-                    self.dataColumns = self.tc.get_csv_columns(csvFile)
-                else:
-                    nextDataColumns = self.tc.get_csv_columns(csvFile)
-                    if self.dataColumns != nextDataColumns:
-                        messagebox.showerror("Error", "Csv headers are inconsistent!")
-            self.selectedDataColumns = self.dataColumns
+class Calculator(Frame):
+    def Add(self):
+        try:
+            num = float(self.topinput.get())
+            self.currentvalue = self.currentvalue + num
+            self.topinput.delete(0, END)
+            self.accu.config(state='normal')
+            self.accu.insert('end', str(round(self.currentvalue,3)) + '\n')
+            self.accu.config(state='disabled')
+            print(self.currentvalue)
+        except ValueError:
+            self.accu.config(state='normal')
+            self.accu.insert('end', "Oops!  That was not a valid number.  Try again...\n")
+            self.accu.config(state='disabled')
+            self.topinput.delete(0, END)
 
+    def Mul(self):
+        try:
+            num = float(self.topinput.get())
+            self.currentvalue = self.currentvalue * num
+            self.topinput.delete(0, END)
+            self.accu.config(state='normal')
+            self.accu.insert('end', str(round(self.currentvalue,3)) + '\n')
+            self.accu.config(state='disabled')
+            print(self.currentvalue)
+        except ValueError:
+            self.accu.config(state='normal')
+            self.accu.insert('end', "Oops!  That was not a valid number.  Try again...\n")
+            self.accu.config(state='disabled')
+            self.topinput.delete(0, END)
+
+
+    def Sub(self):
+        try:
+            num = float(self.topinput.get())
+            self.currentvalue = self.currentvalue - num
+            self.topinput.delete(0, END)
+            self.accu.config(state='normal')
+            self.accu.insert('end', str(round(self.currentvalue,3)) + '\n')
+            self.accu.config(state='disabled')
+            print(self.currentvalue)
+        except ValueError:
+            self.accu.config(state='normal')
+            self.accu.insert('end', "Oops!  That was not a valid number.  Try again...\n")
+            self.accu.config(state='disabled')
+            self.topinput.delete(0, END)
+
+
+    def Div(self):
+        try:
+            num = float(self.topinput.get())
+            self.currentvalue = self.currentvalue/num
+            self.topinput.delete(0, END)
+            self.accu.config(state='normal')
+            self.accu.insert('end', str(round(self.currentvalue,3)) + '\n')
+            self.accu.config(state='disabled')
+            print(self.currentvalue)
+        except ValueError:
+            self.accu.config(state='normal')
+            self.accu.insert('end', "Oops!  That was not a valid number.  Try again...\n")
+            self.accu.config(state='disabled')
+            self.topinput.delete(0, END)
+
+
+    def __init__(self, parent):
+        Frame.__init__(self, parent)
+        self.parent = parent
+
+        self.currentvalue = 0
+
+        self.topbar = Frame(self)
+        self.toplabel = Label(self.topbar, text="Parameter").grid(row=0,column=0)
+        self.topinput = Entry(self.topbar, width=25)
+        self.topinput.grid(row=0,column=1,columnspan=5)
+        self.topbar.grid(row=0,column=0, columnspan=2,sticky=EW)
+
+        self.textbar = Frame(self)
+        self.accu = Text(self.textbar,width=20,height=8,wrap='word')
+        self.scroll = Scrollbar(self.textbar, orient = VERTICAL, command = self.accu.yview)
+        self.accu.config(state='disabled')
+        self.accu.config(yscrollcommand = self.scroll.set)
+        self.accu.grid(row=0,column=0)
+        self.scroll.grid(row=0,column=1, sticky=NS)
+        self.textbar.grid(row=1, column=0, rowspan=4)
+
+
+
+        self.add = Button(self, text='Add', command=self.Add).grid(row=1, column=1)
+        self.sub = Button(self, text='Subtract', command=self.Sub).grid(row=2, column=1)
+        self.mul = Button(self, text='Multiply', command=self.Mul).grid(row=3, column=1)
+        self.div = Button(self, text='Divide', command=self.Div).grid(row=4, column=1)
+
+
+
+class Application(Frame):
     def loadProject(self, projectPath):
         self.projectPath = projectPath
         self.WelcomeScreen.pack_forget()
-        self.updateExistingFiles()
         self.notebook = Notebook(self)
         self.ProjectHomeScreen = ProjectHomeScreen(self)
         self.LoadFilesScreen = LoadFilesScreen(self)
-        self.PickHeadersScreen = PickHeaders(self)
         self.FFTPreviewScreen = FFTPreviewScreen(self)
         self.ConfigureScreen = ConfigureScreen(self)
         self.ResultsScreen = ResultsScreen(self)
         self.notebook.add(self.ProjectHomeScreen, text="Home")
         self.notebook.add(self.LoadFilesScreen, text="Load Files")
-        self.notebook.add(self.PickHeadersScreen, text="Pick Headers")
         self.notebook.add(self.FFTPreviewScreen, text="FFT Preview")
         self.notebook.add(self.ConfigureScreen, text="Configure Classifier")
         self.notebook.add(self.ResultsScreen, text="Results")
         self.notebook.pack()
-        self.PickHeadersScreen.refresh()
 
     def __init__(self, master=None):
         Frame.__init__(self, master)
+        self.notebook1 = Notebook(self)
         self.WelcomeScreen = WelcomeScreen(self)
-        self.WelcomeScreen.pack()
-        self.dataColumns = []
+        self.calculator = Calculator(self)
+        self.notebook1.add(self.WelcomeScreen, text="Timechange")
+        self.notebook1.add(self.calculator, text="Calculator")
+
+        self.notebook1.pack()
+
+
         self.pack()
 
 root = Tk()

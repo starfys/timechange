@@ -1,6 +1,5 @@
 numpy
 scipy
-keras==1.2.2
+keras
 pandas
 pillow
-h5py
