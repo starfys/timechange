@@ -208,9 +208,10 @@ class Calculator(Frame):
         self.currentvalue = 0
 
         self.topbar = Frame(self)
-        self.toplabel = Label(self.topbar, text="Parameter").grid(row=0,column=0)
-        self.topinput = Entry(self.topbar, width=25)
-        self.topinput.grid(row=0,column=1,columnspan=5)
+        self.toplabel = Label(self.topbar, text="Parameter : ")
+        self.toplabel.grid(row=0,column=0)
+        self.topinput = Entry(self.topbar, width=31)
+        self.topinput.grid(row=0,column=1)
         self.topbar.grid(row=0,column=0, columnspan=2,sticky=EW)
 
         self.textbar = Frame(self)
