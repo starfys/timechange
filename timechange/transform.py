@@ -50,7 +50,7 @@ def extract(time_series, method="fft", chunk_size=None):
 #TODO: split time series into chunks
 #TODO: ignoring values with little information
 #TODO: version with axes
-def simple_fourier(time_series, chunk_size = None):
+def simple_fourier(time_series, chunk_size = 64, fft_size = 128):
     """Performs a basic fourier transform across the entire time series. The imaginary results are normalized.
     Keyword arguments:
     time_series -- The time series analyse as a 2d numpy array
@@ -58,10 +58,8 @@ def simple_fourier(time_series, chunk_size = None):
                  Values lower than the data size will remove elements.
                  With FFT, it is recommended to use powers of 2 here
     """
-    #If default value is left for data size, use a placeholder
-    #TODO: something better with this
-    if chunk_size is None:
-        chunk_size = 64
+    #Store the number of time series streams
+    num_time_series = time_series.shape[0]
     # Pad the data to chunk size
     pad_length = chunk_size - (time_series.shape[1] % chunk_size)
     time_series = np.pad(time_series, ((0, 0), (0, pad_length)), 'constant', constant_values=0)
@@ -69,42 +67,23 @@ def simple_fourier(time_series, chunk_size = None):
     time_series = time_series.reshape(int(np.product(time_series.shape) / chunk_size), chunk_size)
     # Perform FFT on the resulting data
     # Store in the time_series variable since that data is no longer needed
-    time_series = np.fft.rfft(time_series)
     # Normalize the real and complex features
-    #Extract real features
-    real_features = time_series.real
-    #Normalize against minimum value per row to avoid negative values
-    #TODO: consider normalizing across the array to make standout values stand out more
-    #TODO: better notation for this.
-    real_features = (real_features.T - np.amin(real_features, axis=1).T).T
+    time_series = np.abs(np.fft.rfft(time_series))
+    # Store the chunked shape
+    chunked_shape = time_series.shape
+    # Reshape it back to num_waves, * for normalization
+    time_series = time_series.reshape((num_time_series, np.product(time_series.shape) // num_time_series))
     #Normalize against maximum value per row to get all values between 0 and 1
     #Extract max values and replace 0s to avoid divide by 0 issue
-    max_values = np.amax(real_features, axis=1)
+    max_values = np.max(time_series, axis=1)
     np.place(max_values, max_values == 0, 1)
-    #TODO: consider normalizing across the array to make standout values stand out more
-    #TODO: consider normalizing using L2 Norm
-    #TODO: better notation for this.
-    real_features = (real_features.T / max_values.T).T
-    #Do the same thing for complex values
-    complex_features = time_series.imag
-    #Normalize against minimum value per row to avoid negative values
-    #TODO: consider normalizing across the array to make standout values stand out more
-    #TODO: better notation for this.
-    complex_features = (complex_features.T - np.amin(complex_features, axis=1).T).T
-    #Normalize against maximum value per row to get all values between 0 and 1
-    #Extract max values and replace 0s to avoid divide by 0 issue
-    max_values = np.amax(complex_features, axis=1)
-    np.place(max_values, max_values == 0, 1)
-    #TODO: consider normalizing across the array to make standout values stand out more
-    #TODO: consider normalizing using L2 Norm
-    #TODO: better notation for this.
-    complex_features = (complex_features.T / max_values.T).T
-    #Combine the real and complex features into an array
+    #Normalize the time series data by row
+    time_series = (time_series.T / max_values).T
+    #Reshape the time series back to its chunked shape
+    time_series = time_series.reshape(chunked_shape)
     #TODO: configure whether shuffled or stacked
-    #return np.concatenate((real_features, complex_features), axis=1) #shuffled
-    #Combine in color channels
     #Shape of this array is 3, W, H
-    return np.stack((real_features, complex_features, np.zeros(real_features.shape)), axis=2)
+    return np.stack((time_series, time_series, time_series), axis=2)
 
 
 def spectrogram(time_series):
