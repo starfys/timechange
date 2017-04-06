@@ -304,9 +304,9 @@ class TimeChange:
         #Train the model
         #TODO: k-fold validation
         try:
-            self.model.fit_generator(train_generator,
+            return self.model.fit_generator(train_generator,
                                     samples_per_epoch=self.num_samples, #TODO: better solution
-                                    nb_epoch=num_epochs) #TODO: customize this
+                                    nb_epoch=num_epochs).history #TODO: customize this
         except Exception as err:
             #TODO: Handle error better
             raise Exception("Something went wrong with the training process")
