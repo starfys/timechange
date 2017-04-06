@@ -174,7 +174,7 @@ class TimeChange:
         file_path -- path of file to read from
         Returns: A list of column names from the csv file
         """
-        return list(pandas.read_csv(file_path, nrows=1).columns)h
+        return list(pandas.read_csv(file_path, nrows=1).columns)
     def convert_csv(self, input_file_path, method="fft", chunk_size=64, fft_size=128, data_length=None, output_file_path=None):
         """Reads a csv file and returns the column names
         Preconditions: self.columns is set or the user wants to use all csv columns 
