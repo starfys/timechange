@@ -30,7 +30,7 @@ THE SOFTWARE.
 import numpy as np
 from scipy import signal
 
-def extract(time_series, method="fft", chunk_size=None):
+def extract(time_series, method="fft", chunk_size=64, fft_size=128):
     """Extracts features from a time series or array of time series and outputs an image
     Keyword arguments:
     time_series -- A numpy array or array of numpy arrays representing the time series data
@@ -39,7 +39,7 @@ def extract(time_series, method="fft", chunk_size=None):
     """
     #Switches on method
     if method == "fft":
-        return simple_fourier(time_series, chunk_size=chunk_size)
+        return simple_fourier(time_series, chunk_size=chunk_size, fft_size=fft_size)
     elif method == "spectrogram":
         return spectrogram(time_series)
     else:
@@ -50,7 +50,7 @@ def extract(time_series, method="fft", chunk_size=None):
 #TODO: split time series into chunks
 #TODO: ignoring values with little information
 #TODO: version with axes
-def simple_fourier(time_series, chunk_size = 64, fft_size = 128):
+def simple_fourier(time_series, chunk_size=64, fft_size=128):
     """Performs a basic fourier transform across the entire time series. The imaginary results are normalized.
     Keyword arguments:
     time_series -- The time series analyse as a 2d numpy array
@@ -68,7 +68,7 @@ def simple_fourier(time_series, chunk_size = 64, fft_size = 128):
     # Perform FFT on the resulting data
     # Store in the time_series variable since that data is no longer needed
     # Normalize the real and complex features
-    time_series = np.abs(np.fft.rfft(time_series))
+    time_series = np.abs(np.fft.rfft(time_series, fft_size))
     # Store the chunked shape
     chunked_shape = time_series.shape
     # Reshape it back to num_waves, * for normalization

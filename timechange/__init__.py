@@ -58,7 +58,9 @@ num_blocks = 3
 #The number of filters for these blocks (comma-separated list)
 #If the size of this list is less than num_blocks, the last value
 #will be used for the remaining values
-num_filters = 32,32,32
+
+num_filters = 64,32,32
+
 #Learning rate for training
 learning_rate = 1e-2
 """
@@ -172,8 +174,8 @@ class TimeChange:
         file_path -- path of file to read from
         Returns: A list of column names from the csv file
         """
-        return list(pandas.read_csv(file_path, nrows=1).columns)
-    def convert_csv(self, input_file_path, method="fft", chunk_size=64, data_length=None, output_file_path=None):
+        return list(pandas.read_csv(file_path, nrows=1).columns)h
+    def convert_csv(self, input_file_path, method="fft", chunk_size=64, fft_size=128, data_length=None, output_file_path=None):
         """Reads a csv file and returns the column names
         Preconditions: self.columns is set or the user wants to use all csv columns 
         Keyword arguments:
@@ -197,14 +199,14 @@ class TimeChange:
             data = np.pad(data, ((0,0), (0, pad_amount)), 'constant', constant_values=0.0)
         # Extract features from the numpy array
         # Uses same variable name since data is not needed after feature extraction
-        data = transform.extract(data, method=method, chunk_size=chunk_size)
+        data = transform.extract(data, method=method, chunk_size=chunk_size, fft_size=fft_size)
         # Generate an image from the resulting feature representation
         img = Image.fromarray((data * 255).astype(np.uint8), "RGB")
         #Save the image to the desired file path
         img.save(output_file_path)
         #Return the image's size
         return img.size
-    def convert_all_csv(self, method=None, chunk_size=64):
+    def convert_all_csv(self, method=None, chunk_size=64, fft_size=128):
         """Iterates over the training files set and generates corresponding images
         using the feature extraction method
         Keyword arguments:
@@ -254,6 +256,7 @@ class TimeChange:
                         csv_file.path,
                         method=method,
                         chunk_size=chunk_size,
+                        fft_size=fft_size,
                         data_length = self.csv_length,
                         output_file_path=path.join(self.project_path, "images", label, new_name))
                 #Increment the number of samples
