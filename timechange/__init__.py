@@ -206,7 +206,7 @@ class TimeChange:
         img.save(output_file_path)
         #Return the image's size
         return img.size
-    def convert_all_csv(self, method=None, chunk_size=64, fft_size=128):
+    def convert_all_csv(self, method="fft", chunk_size=64, fft_size=128):
         """Iterates over the training files set and generates corresponding images
         using the feature extraction method
         Keyword arguments:
