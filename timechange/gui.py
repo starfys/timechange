@@ -2,11 +2,13 @@
 
 import os
 from tkinter import *
+import time
 from tkinter.ttk import *
 from tkinter import messagebox
 from tkinter import filedialog
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 import timechange
+from threading import *
 
 class CheckBoxSet(Frame):
     def __init__(self, parent, picks=[], side=LEFT, anchor=W):
@@ -26,7 +28,9 @@ class WelcomeScreen(Frame):
     def defaultProject(self):
         self.parent.tc = timechange.TimeChange()
         projectDir = os.path.join(os.path.expanduser('~'), 'timechange', 'default')
-        self.parent.loadProject(projectDir)
+        #self.parent.loadProject(projectDir)
+        t = Thread(target =self.parent.loadProject, args=(projectDir,))
+        t.start()
 
     def loadProject(self):
         projectDir = filedialog.askdirectory(initialdir=os.path.expanduser("~"))
@@ -34,7 +38,9 @@ class WelcomeScreen(Frame):
         basename = os.path.basename(os.path.realpath(projectDir))
         try:
             self.parent.tc = timechange.TimeChange(project_name=basename, parent_folder=dirname)
-            self.parent.loadProject(projectDir)
+            #self.parent.loadProject(projectDir)
+            t = Thread(target=self.parent.loadProject, args=(projectDir,))
+            t.start()
         except:
             messagebox.showerror("Error", "%s is an invalid project directory" % projectDir)
 
@@ -69,7 +75,15 @@ class LoadFilesScreen(Frame):
             label = self.IMPORTFILES.item(item)["values"][0]
             fullpath = self.IMPORTFILES.item(item)["values"][1]
             self.parent.tc.add_training_file(label, fullpath)
-        self.parent.updateExistingFiles()
+            t = Thread(target=self.parent.tc.add_training_file, args=(label, fullpath))
+            t.start()
+            t.join()
+
+        #self.parent.updateExistingFiles()
+        t1 = Thread(target=self.parent.updateExistingFiles)
+        t1.start()
+        # t1.join()
+
 
     def __init__(self, parent):
         Frame.__init__(self, parent)
@@ -113,6 +127,20 @@ class PickHeaders(Frame):
                 self.selectedDataColumns.append(key)
         self.parent.tc.columns=self.selectedDataColumns
         self.parent.tc.convert_all_csv()
+        t = Thread(target=self.parent.tc.convert_all_csv)
+        t.start()
+        self.parent.notebook.pack_forget()
+        self.parent.config(cursor="wait")
+        #pack progress bar
+        pb_hd = Progressbar(self.parent, orient='horizontal', mode='indeterminate')
+        pb_hd.pack()
+        pb_hd.start(50)
+        t.join()
+        #unpack progreebar
+        #pb_hd.stop()
+        #pb_hd.pack_forget()
+        #self.parent.notebook.pack()
+        #self.parent.config(cursor="")
 
     def refresh(self):
         self.HEADERS.pack_forget()
