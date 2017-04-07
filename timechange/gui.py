@@ -127,7 +127,7 @@ class PickHeaders(Frame):
                 self.selectedDataColumns.append(key)
         self.parent.tc.columns=self.selectedDataColumns
         self.parent.tc.convert_all_csv()
-        t = Thread(target=self.parent.tc.convert_all_csv)
+        t = Thread(target=self.parent.tc.convert_all_csv, args=(self.parent.ConfigureScreen.method, self.parent.ConfigureScreen.chunksize, self.parent.ConfigureScreen.fftsize))
         t.start()
         self.parent.notebook.pack_forget()
         self.parent.config(cursor="wait")
@@ -175,6 +175,53 @@ class FFTPreviewScreen(Frame):
         self.LBL.pack()
         self.pack()
 
+
+class ConfigureScreen(Frame):
+    def changeconfig(self):
+        try:
+            self.chunksize = int(self.input1.get())
+            self.fftsize = int(self.input2.get())
+            self.method = self.methodvariable.get()
+
+        except ValueError :
+            print('not a valid config, using default')
+        print(self.chunksize)
+        print(self.fftsize)
+        print(self.method)
+
+    def __init__(self, parent):
+        Frame.__init__(self, parent)
+        self.parent = parent
+
+        self.chunksize = 64
+        self.fftsize = 128
+        self.method = 'fft'
+
+
+
+        self.label1 = Label(self, text="Chunk Size : ", )
+        self.label1.grid(row=0,column=0, sticky=NSEW)
+        self.label2 = Label(self, text="FFT Size : ")
+        self.label2.grid(row=1, column=0, sticky=NSEW)
+        self.label3 = Label(self, text="Method : ")
+        self.label3.grid(row=2, column=0, sticky=NSEW)
+
+        self.methodoptions = ['fft', 'fft1', 'fft2']
+        self.methodvariable = StringVar(self)
+        #self.methodvariable.set(self.methodoptions[0])  # default value
+
+        self.input1 = Entry(self, width=31)
+        self.input1.grid(row=0,column=1, sticky=NSEW)
+        self.input2 = Entry(self, width=31)
+        self.input2.grid(row=1, column=1, sticky=NSEW)
+
+        self.input3 = OptionMenu(self, self.methodvariable, *(self.methodoptions))
+        self.input3.grid(row=2, column=1, sticky=NSEW)
+
+        self.save = Button(self, text='Save', command=self.changeconfig).grid(row=3, column=1,columnspan = 2)
+
+
+'''
 class ConfigureScreen(Frame):
     def save(self):
         print(self.parent.configFile)
@@ -207,6 +254,7 @@ class ConfigureScreen(Frame):
         self.SAVEBUTTON.pack()
         self.CONFIG.bind("<<Modified>>", self.setDirty)
         self.pack()
+'''
 
 class ResultsScreen(Frame):
     def __init__(self, parent):
