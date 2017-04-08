@@ -148,7 +148,53 @@ class FFTPreviewScreen(Frame):
         self.pack()
 
 class ConfigureScreen(Frame):
-    def save(self):
+    def DesiredWindow(self):
+        try:
+            val  = str(self.UpperLabelEntry.get())
+            val2 = str(self.MiddleLabelEntry.get())
+            val3 = str(self.LowerLabelEntry.get())
+
+            self.InsertedValue = val
+
+            fh = open('Config.txt', 'a')
+            fh.write('|Windows Length|   ' + val  + '\n')
+            fh.write('|Overlap Ratio |   ' + val2 + '\n')
+            fh.write('|Rate          |   ' + val3 + '\n')
+            fh.close()
+
+            self.UpperLabelEntry.delete(0, END)
+            self.MiddleLabelEntry.delete(0, END)
+            self.LowerLabelEntry.delete(0, END)
+
+        except ValueError:
+            self.UpperLabelEntry.delete(0, END)
+            self.MiddleLabelEntry.delete(0, END)
+            self.LowerLabelEntry.delete(0, END)
+
+    def __init__(self, parent):
+        Frame.__init__(self, parent)
+        self.parent = parent
+        self.theInsertedValue = 0
+        self.topbar = Frame(self)
+
+        # bar number 1
+        self.toplabel = Label(self.topbar, text="WindowLength: ").grid(row=1, column=0)
+        self.UpperLabelEntry = Entry(self.topbar, width=30)
+        self.UpperLabelEntry.grid(row=1, column=1, columnspan=5)
+        self.topbar.grid(row=1, column=0, columnspan=2, sticky=EW)
+        # bar number 2
+        self.toplabel = Label(self.topbar, text="Ratio: ").grid(row=3, column=0)
+        self.MiddleLabelEntry = Entry(self.topbar, width=30)
+        self.MiddleLabelEntry.grid(row=3, column=1, columnspan=5)
+        self.topbar.grid(row=3, column=0, columnspan=2, sticky=EW)
+        # bar number 3
+        self.toplabel = Label(self.topbar, text="Rate : ").grid(row=5, column=0)
+        self.LowerLabelEntry = Entry(self.topbar, width=30)
+        self.LowerLabelEntry.grid(row=5, column=1, columnspan=5)
+        self.topbar.grid(row=5, column=0, columnspan=2, sticky=EW)
+        self.DesiredWindow = Button(self, text='Save Inserted Values', command=self.DesiredWindow).grid(row=7, column=2)
+
+    ''' def save(self):
         print(self.parent.configFile)
         fh = open(self.parent.configFile, 'w')
         fh.write(self.CONFIG.get("1.0",END))
@@ -178,13 +224,112 @@ class ConfigureScreen(Frame):
         self.SAVEBUTTON.config(state=DISABLED)
         self.SAVEBUTTON.pack()
         self.CONFIG.bind("<<Modified>>", self.setDirty)
-        self.pack()
+'''
+
+class Calculator(Frame):
+    def Add(self):
+        try:
+            num = float(self.UpperLabelEntry.get())
+            self.theInsertedValue = self.theInsertedValue + num
+            self.UpperLabelEntry.delete(0, END)
+            self.outputNumber.config(state='normal')
+            self.outputNumber.insert('end', str(round(self.theInsertedValue)) + '\n')
+            self.outputNumber.config(state='disabled')
+            print(self.theInsertedValue)
+        except ValueError:
+            self.outputNumber.config(state='normal')
+            self.outputNumber.insert('end', "error insert an integer\n")
+            self.outputNumber.config(state='disabled')
+            self.UpperLabelEntry.delete(0, END)
+
+    def Mul(self):
+        try:
+            num = float(self.UpperLabelEntry.get())
+            self.theInsertedValue = self.theInsertedValue * num
+            self.UpperLabelEntry.delete(0, END)
+            self.outputNumber.config(state='normal')
+            self.outputNumber.insert('end', str(round(self.theInsertedValue, 3)) + '\n')
+            self.outputNumber.config(state='disabled')
+            print(self.theInsertedValue)
+        except ValueError:
+            self.outputNumber.config(state='normal')
+            self.outputNumber.insert('end', "error insert an integer number\n")
+            self.outputNumber.config(state='disabled')
+            self.UpperLabelEntry.delete(0, END)
+
+    def Sub(self):
+        try:
+            num = float(self.UpperLabelEntry.get())
+            self.theInsertedValue = self.theInsertedValue - num
+            self.UpperLabelEntry.delete(0, END)
+            self.outputNumber.config(state='normal')
+            self.outputNumber.insert('end', str(round(self.theInsertedValue, 3)) + '\n')
+            self.outputNumber.config(state='disabled')
+            print(self.theInsertedValue)
+        except ValueError:
+            self.outputNumber.config(state='normal')
+            self.outputNumber.insert('end', "error insert an integer number\n")
+            self.outputNumber.config(state='disabled')
+            self.UpperLabelEntry.delete(0, END)
+
+    def Div(self):
+        try:
+            num = float(self.UpperLabelEntry.get())
+            self.theInsertedValue = self.theInsertedValue / num
+            self.UpperLabelEntry.delete(0, END)
+            self.outputNumber.config(state='normal')
+            self.outputNumber.insert('end', str(round(self.theInsertedValue, 3)) + '\n')
+            self.outputNumber.config(state='disabled')
+            print(self.theInsertedValue)
+        except ValueError:
+            self.outputNumber.config(state='normal')
+            self.outputNumber.insert('end', "error insert an integer number\n")
+            self.outputNumber.config(state='disabled')
+            self.UpperLabelEntry.delete(0, END)
+
+    def Submit(self):
+        try:
+            num = int(self.UpperLabelEntry.get())
+            self.theInsertedValue = self.theInsertedValue / num
+            self.UpperLabelEntry.delete(0, END)
+            self.outputNumber.config(state='normal')
+            self.outputNumber.insert('end', str(round(self.theInsertedValue, 3)) + '\n')
+            self.outputNumber.config(state='disabled')
+            print(self.theInsertedValue)
+        except ValueError:
+            self.outputNumber.config(state='normal')
+            self.outputNumber.insert('end', "error...\n")
+            self.outputNumber.config(state='disabled')
+            self.UpperLabelEntry.delete(0, END)
+
+    def __init__(self, parent):
+        Frame.__init__(self, parent)
+        self.parent = parent
+        self.theInsertedValue = 0
+        self.topbar = Frame(self)
+        self.toplabel = Label(self.topbar, text="Parameter : ").grid(row=0, column=0)
+        self.UpperLabelEntry = Entry(self.topbar, width=30)
+        self.UpperLabelEntry.grid(row=0, column=1, columnspan=5)
+        self.topbar.grid(row=0, column=0, columnspan=2, sticky=EW)
+
+        self.textbar = Frame(self)
+        self.outputNumber = Text(self.textbar, width=20, height=8, wrap='word')
+        self.scroll = Scrollbar(self.textbar, orient=VERTICAL, command=self.outputNumber.yview)
+        self.outputNumber.config(state='disabled')
+        self.outputNumber.config(yscrollcommand=self.scroll.set)
+        self.outputNumber.grid(row=0, column=0)
+        self.scroll.grid(row=0, column=3, sticky=NS)
+        self.textbar.grid(row=1, column=0, rowspan=4)
+        self.add = Button(self, text='+', command=self.Add).grid(row=1, column=1)
+        self.sub = Button(self, text='-', command=self.Sub).grid(row=2, column=1)
+        self.mul = Button(self, text='*', command=self.Mul).grid(row=3, column=1)
+        self.div = Button(self, text='/', command=self.Div).grid(row=4, column=1)
 
 class ResultsScreen(Frame):
     def __init__(self, parent):
         Frame.__init__(self, parent)
         self.LBL = Label(self)
-        self.LBL["text"] = "Results go here. Work in Progress..."
+        self.LBL["text"] = "Result goes here. Work in Progress..."
         self.LBL.pack()
         self.parent = parent
         self.pack()
@@ -234,16 +379,17 @@ class Application(Frame):
         self.PickHeadersScreen = PickHeaders(self)
         self.FFTPreviewScreen = FFTPreviewScreen(self)
         self.ConfigureScreen = ConfigureScreen(self)
+        self.Calculator = Calculator(self)
         self.ResultsScreen = ResultsScreen(self)
         self.notebook.add(self.ProjectHomeScreen, text="Home")
         self.notebook.add(self.LoadFilesScreen, text="Load Files")
         self.notebook.add(self.PickHeadersScreen, text="Pick Headers")
         self.notebook.add(self.FFTPreviewScreen, text="FFT Preview")
         self.notebook.add(self.ConfigureScreen, text="Configure Classifier")
+        self.notebook.add(self.Calculator, text="Calculator")
         self.notebook.add(self.ResultsScreen, text="Results")
         self.notebook.pack()
         self.PickHeadersScreen.refresh()
-
     def __init__(self, master=None):
         Frame.__init__(self, master)
         self.WelcomeScreen = WelcomeScreen(self)
