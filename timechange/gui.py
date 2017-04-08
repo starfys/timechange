@@ -154,8 +154,9 @@ class ConfigureScreen(Frame):
             val2 = str(self.MiddleLabelEntry.get())
             val3 = str(self.LowerLabelEntry.get())
 
-            self.InsertedValue = val
-
+            #self.InsertedValue = val
+            #self.InsertedValue = val2
+            #self.InsertedValue = val3
             fh = open('Config.txt', 'a')
             fh.write('|Windows Length|   ' + val  + '\n')
             fh.write('|Overlap Ratio |   ' + val2 + '\n')
