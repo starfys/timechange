@@ -181,13 +181,15 @@ class FFTPreviewScreen(Frame):
 
 class ConfigureScreen(Frame):
     def save(self):
-        print(self.parent.configFile)
+        # Disable the save button 
+        self.SAVEBUTTON.config(state=DISABLED)
+        #Save the config file
         with open(self.parent.configFile, 'w') as fh:
             fh.write(self.CONFIG.get("1.0",END))
         #Generate model
-        self.parent.tc.
-        #Re-disable save button
-        self.SAVEBUTTON.config(state=DISABLED)
+        self.parent.tc.build_model()
+        #Re-enable save button
+        self.SAVEBUTTON.config(state=NORMAL)
 
     def setDirty(self, event):
         self.dirty = True
@@ -209,7 +211,6 @@ class ConfigureScreen(Frame):
         self.SAVEBUTTON = Button(self)
         self.SAVEBUTTON["text"] = "Save"
         self.SAVEBUTTON["command"] = self.save
-        self.SAVEBUTTON.config(state=DISABLED)
         self.SAVEBUTTON.pack()
         self.CONFIG.bind("<<Modified>>", self.setDirty)
         self.pack()
@@ -223,9 +224,17 @@ class ResultsScreen(Frame):
         self.LBL.pack()
         #Button for training
         def train_in_thread():
-            t = Thread(target=self.parent.tc.train)
-            t.start()
-            return t.join()
+            #Disable the button
+            self.TRAINBUTTON.config(state=DISABLED)
+            #Perform training
+            training_results = self.parent.tc.train()
+            #Re-enable the button
+            self.TRAINBUTTON.config(state=NORMAL)
+            #Return the results
+            results_message = "Training Results\n"
+            results_message += "Training Accuracy: {}\n".format(training_results["acc"][-1])
+            results_message += "Training Loss: {}".format(training_results["loss"][-1])
+            self.LBL["text"] = results_message
         self.TRAINBUTTON = Button(self)
         self.TRAINBUTTON["text"] = "Train"
         self.TRAINBUTTON["command"] = train_in_thread
