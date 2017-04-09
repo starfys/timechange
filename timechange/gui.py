@@ -130,16 +130,20 @@ class PickHeaders(Frame):
         t = Thread(target=self.parent.tc.convert_all_csv)
         t.start()
         self.parent.notebook.pack_forget()
-        self.parent.config(cursor="wait")
+        #Fix: some system's don't have wait cursor
+        try:
+            self.parent.config(cursor="wait")
+        except:
+            pass
         #pack progress bar
         pb_hd = Progressbar(self.parent, orient='horizontal', mode='indeterminate')
         pb_hd.pack()
         pb_hd.start(50)
         t.join()
         #unpack progreebar
-        #pb_hd.stop()
-        #pb_hd.pack_forget()
-        #self.parent.notebook.pack()
+        pb_hd.stop()
+        pb_hd.pack_forget()
+        self.parent.notebook.pack()
         #self.parent.config(cursor="")
 
     def refresh(self):
@@ -178,9 +182,11 @@ class FFTPreviewScreen(Frame):
 class ConfigureScreen(Frame):
     def save(self):
         print(self.parent.configFile)
-        fh = open(self.parent.configFile, 'w')
-        fh.write(self.CONFIG.get("1.0",END))
-        fh.close()
+        with open(self.parent.configFile, 'w') as fh:
+            fh.write(self.CONFIG.get("1.0",END))
+        #Generate model
+        self.parent.tc.
+        #Re-disable save button
         self.SAVEBUTTON.config(state=DISABLED)
 
     def setDirty(self, event):
@@ -191,7 +197,7 @@ class ConfigureScreen(Frame):
         Frame.__init__(self, parent)
         self.parent = parent
         self.dirty = False
-        self.parent.configFile = os.path.join(self.parent.projectPath, "timechange.cfg")
+        self.parent.configFile = os.path.join(self.parent.projectPath, "parameters.conf")
         if not os.path.isfile(self.parent.configFile):
             open(self.parent.configFile, 'a').close()
         self.CONFIG = Text(self)
@@ -211,10 +217,19 @@ class ConfigureScreen(Frame):
 class ResultsScreen(Frame):
     def __init__(self, parent):
         Frame.__init__(self, parent)
+        self.parent = parent
         self.LBL = Label(self)
         self.LBL["text"] = "Results go here. Work in Progress..."
         self.LBL.pack()
-        self.parent = parent
+        #Button for training
+        def train_in_thread():
+            t = Thread(target=self.parent.tc.train)
+            t.start()
+            return t.join()
+        self.TRAINBUTTON = Button(self)
+        self.TRAINBUTTON["text"] = "Train"
+        self.TRAINBUTTON["command"] = train_in_thread
+        self.TRAINBUTTON.pack()
         self.pack()
 
 class ProjectHomeScreen(Frame):
