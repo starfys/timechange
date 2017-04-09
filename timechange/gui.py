@@ -130,16 +130,20 @@ class PickHeaders(Frame):
         t = Thread(target=self.parent.tc.convert_all_csv, args=(self.parent.ConfigureScreen.method, self.parent.ConfigureScreen.chunksize, self.parent.ConfigureScreen.fftsize))
         t.start()
         self.parent.notebook.pack_forget()
-        self.parent.config(cursor="wait")
+        #Fix: some system's don't have wait cursor
+        try:
+            self.parent.config(cursor="wait")
+        except:
+            pass
         #pack progress bar
         pb_hd = Progressbar(self.parent, orient='horizontal', mode='indeterminate')
         pb_hd.pack()
         pb_hd.start(50)
         t.join()
         #unpack progreebar
-        #pb_hd.stop()
-        #pb_hd.pack_forget()
-        #self.parent.notebook.pack()
+        pb_hd.stop()
+        pb_hd.pack_forget()
+        self.parent.notebook.pack()
         #self.parent.config(cursor="")
 
     def refresh(self):
@@ -224,11 +228,15 @@ class ConfigureScreen(Frame):
 '''
 class ConfigureScreen(Frame):
     def save(self):
-        print(self.parent.configFile)
-        fh = open(self.parent.configFile, 'w')
-        fh.write(self.CONFIG.get("1.0",END))
-        fh.close()
+        # Disable the save button 
         self.SAVEBUTTON.config(state=DISABLED)
+        #Save the config file
+        with open(self.parent.configFile, 'w') as fh:
+            fh.write(self.CONFIG.get("1.0",END))
+        #Generate model
+        self.parent.tc.build_model()
+        #Re-enable save button
+        self.SAVEBUTTON.config(state=NORMAL)
 
     def setDirty(self, event):
         self.dirty = True
@@ -238,7 +246,7 @@ class ConfigureScreen(Frame):
         Frame.__init__(self, parent)
         self.parent = parent
         self.dirty = False
-        self.parent.configFile = os.path.join(self.parent.projectPath, "timechange.cfg")
+        self.parent.configFile = os.path.join(self.parent.projectPath, "parameters.conf")
         if not os.path.isfile(self.parent.configFile):
             open(self.parent.configFile, 'a').close()
         self.CONFIG = Text(self)
@@ -250,7 +258,6 @@ class ConfigureScreen(Frame):
         self.SAVEBUTTON = Button(self)
         self.SAVEBUTTON["text"] = "Save"
         self.SAVEBUTTON["command"] = self.save
-        self.SAVEBUTTON.config(state=DISABLED)
         self.SAVEBUTTON.pack()
         self.CONFIG.bind("<<Modified>>", self.setDirty)
         self.pack()
@@ -259,10 +266,27 @@ class ConfigureScreen(Frame):
 class ResultsScreen(Frame):
     def __init__(self, parent):
         Frame.__init__(self, parent)
+        self.parent = parent
         self.LBL = Label(self)
         self.LBL["text"] = "Results go here. Work in Progress..."
         self.LBL.pack()
-        self.parent = parent
+        #Button for training
+        def train_in_thread():
+            #Disable the button
+            self.TRAINBUTTON.config(state=DISABLED)
+            #Perform training
+            training_results = self.parent.tc.train()
+            #Re-enable the button
+            self.TRAINBUTTON.config(state=NORMAL)
+            #Return the results
+            results_message = "Training Results\n"
+            results_message += "Training Accuracy: {}\n".format(training_results["acc"][-1])
+            results_message += "Training Loss: {}".format(training_results["loss"][-1])
+            self.LBL["text"] = results_message
+        self.TRAINBUTTON = Button(self)
+        self.TRAINBUTTON["text"] = "Train"
+        self.TRAINBUTTON["command"] = train_in_thread
+        self.TRAINBUTTON.pack()
         self.pack()
 
 class ProjectHomeScreen(Frame):
