@@ -128,7 +128,7 @@ class PickHeaders(Frame):
                 self.selectedDataColumns.append(key)
         self.parent.tc.columns=self.selectedDataColumns
         self.parent.tc.convert_all_csv()
-        t = Thread(target=self.parent.tc.convert_all_csv, args=(self.parent.ConfigureScreen.method, self.parent.ConfigureScreen.chunksize, self.parent.ConfigureScreen.fftsize))
+        t = Thread(target=self.parent.tc.convert_all_csv)#, args=(self.parent.ConfigureScreen.method, self.parent.ConfigureScreen.chunksize, self.parent.ConfigureScreen.fftsize))
         t.start()
         self.parent.notebook.pack_forget()
         #Fix: some system's don't have wait cursor
