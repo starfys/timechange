@@ -150,17 +150,19 @@ class FFTPreviewScreen(Frame):
 class ConfigureScreen(Frame):
     def DesiredWindow(self):
         try:
-            val  = str(self.UpperLabelEntry.get())
-            val2 = str(self.MiddleLabelEntry.get())
-            val3 = str(self.LowerLabelEntry.get())
+            #the values are stored as integer after the user inputs a string value
+            val  = int(self.UpperLabelEntry.get())
+            val2 = int(self.MiddleLabelEntry.get())
+            val3 = int(self.LowerLabelEntry.get())
 
-            #self.InsertedValue = val
-            #self.InsertedValue = val2
-            #self.InsertedValue = val3
+            self.InsertedValue = val
+            self.InsertedValue = val2
+            self.InsertedValue = val3
+            #the files inserted need to be changed to string when added with the new line
             fh = open('Config.txt', 'a')
-            fh.write('|Windows Length|   ' + val  + '\n')
-            fh.write('|Overlap Ratio |   ' + val2 + '\n')
-            fh.write('|Rate          |   ' + val3 + '\n')
+            fh.write('|Windows Length|   ' + str(val)  + '\n')
+            fh.write('|Overlap Ratio |   ' + str(val2) + '\n')
+            fh.write('|Rate          |   ' + str(val3) + '\n')
             fh.close()
 
             self.UpperLabelEntry.delete(0, END)
@@ -226,7 +228,6 @@ class ConfigureScreen(Frame):
         self.SAVEBUTTON.pack()
         self.CONFIG.bind("<<Modified>>", self.setDirty)
 '''
-
 class Calculator(Frame):
     def Add(self):
         try:
