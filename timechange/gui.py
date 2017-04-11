@@ -180,7 +180,7 @@ class FFTPreviewScreen(Frame):
         self.LBL.pack()
         self.pack()
 
-
+'''
 class ConfigureScreen(Frame):
     def changeconfig(self):
         try:
@@ -262,7 +262,7 @@ class ConfigureScreen(Frame):
         self.SAVEBUTTON.pack()
         self.CONFIG.bind("<<Modified>>", self.setDirty)
         self.pack()
-'''
+
 
 class ResultsScreen(Frame):
     def __init__(self, parent):
