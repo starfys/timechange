@@ -131,12 +131,7 @@ class PickHeaders(Frame):
         t = Thread(target=self.parent.tc.convert_all_csv)#, args=(self.parent.ConfigureScreen.method, self.parent.ConfigureScreen.chunksize, self.parent.ConfigureScreen.fftsize))
         t.start()
         self.parent.notebook.pack_forget()
-        #Fix: some system's don't have wait cursor
-        try:
-            self.parent.config(cursor="wait")
-        except:
-            pass
-        #pack progress bar
+        #pack progreebar
         pb_hd = Progressbar(self.parent, orient='horizontal', mode='indeterminate')
         pb_hd.pack()
         pb_hd.start(50)
@@ -145,7 +140,7 @@ class PickHeaders(Frame):
         pb_hd.stop()
         pb_hd.pack_forget()
         self.parent.notebook.pack()
-        #self.parent.config(cursor="")
+        messagebox.showinfo('Info','FFT generation complete')
 
     def refresh(self):
         self.HEADERS.pack_forget()
