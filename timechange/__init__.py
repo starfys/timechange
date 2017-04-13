@@ -310,22 +310,20 @@ class TimeChange:
         except Exception as err:
             #TODO: Handle error better
             raise Exception("Something went wrong with the training process")
-    def load_model(self, input_filename):
+    def load_model(self, model_name):
         """Loads a neural net model from a file
         Keyword arguments:
         input_filename -- h5 file to load the model from
         """
-        self.model.load_weights(input_filename)
-    def save_model(self, output_filename=None):
+        self.model.load_weights(path.join(self.project_path, "models", model_name))
+    def save_model(self, model_name):
         """Saves the current neural net model
         Keyword arguments:
         output_filename -- The place the model will be stored. None stores it in the profile"""
         #Handle default filenames
-        if output_filename is None:
-            output_filename = path.join(self.project_path, "models", "latest.h5")
-            pass
+
         #Save the model
-        self.model.save_weights(output_filename)
+        self.model.save_weights(path.join(self.project_path, "models", model_name))
     def get_statistics(self):
         """Gets statistics from the model
         Return value: dictionary of statistical values
