@@ -132,9 +132,6 @@ class TimeChange:
         #Stores what csv columns to use
         #TODO: store this value in a file instead of as a private member
         self.columns = None #Default values
-        #Stores the keras model used for training
-        #TODO: store this in a configuration file
-        self.model = None
 
     def add_training_file(self, label, file_path):
         """Adds a training file to the dataset under a specific label
@@ -184,7 +181,6 @@ class TimeChange:
         chunk_size -- number of samples per chunk (used for FFT method)
         output_file_path -- png file to output to. Uses a standard scheme if None
         """
-
         # Set default file_path if no argument specified
         # TODO: fix this to be more in line with the rest of the project structure
         if output_file_path is None:
@@ -206,14 +202,17 @@ class TimeChange:
         img.save(output_file_path)
         #Return the image's size
         return img.size
-    def convert_all_csv(self, method=None, chunk_size=64, fft_size=128):
+    def convert_all_csv(self, method="fft", chunk_size=64, fft_size=128):
         """Iterates over the training files set and generates corresponding images
         using the feature extraction method
         Keyword arguments:
         method -- Method used by extract_features to generate image data. Default: fft"""
         # Set default columns if no argument specified
-        if self.columns is None:
-            self.columns = self.get_csv_columns(input_file_path)
+        if not self.columns:
+            #Pick a file from the test set
+            random_csv_file = list(os.scandir(path.join(self.project_path, "csv")))[0].path
+            random_csv_file = list(os.scandir(random_csv_file))[0].path
+            self.columns = self.get_csv_columns(random_csv_file)
         #Clear subfolders in image folder without deleting images folder
         #This is to make sure old images don't stick around
         #In case a file has been removed
@@ -329,3 +328,4 @@ class TimeChange:
         Return value: dictionary of statistical values
         """
         return {'accuracy':'not accurate'}
+        self.model.save_weights(output_filename)

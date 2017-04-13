@@ -10,6 +10,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 import timechange
 from threading import *
 
+
 class CheckBoxSet(Frame):
     def __init__(self, parent, picks=[], side=LEFT, anchor=W):
         Frame.__init__(self, parent)
@@ -69,6 +70,7 @@ class LoadFilesScreen(Frame):
         for selectedItem in selectedItems:
             self.IMPORTFILES.set(selectedItem, column="Label", value=self.LABEL.get())
 
+
     def addFiles(self):
         for item in self.IMPORTFILES.get_children():
             file = self.IMPORTFILES.item(item)["text"]
@@ -102,7 +104,8 @@ class LoadFilesScreen(Frame):
         self.IMPORTFILESBUTTON["text"] = "Select Files"
         self.IMPORTFILESBUTTON["command"] = self.importFiles
         self.IMPORTFILESBUTTON.pack()
-        self.IMPORTFILES = Treeview(self, columns=('Label', 'fullpath'))
+        self.IMPORTFILESFRAME = Frame(self)
+        self.IMPORTFILES = Treeview(self.IMPORTFILESFRAME, columns=('Label', 'fullpath'))
         self.IMPORTFILES.heading('#0', text='File')
         self.IMPORTFILES.heading('#1', text='Label')
         self.IMPORTFILES.heading('#2', text='fullpath')
@@ -111,13 +114,18 @@ class LoadFilesScreen(Frame):
         self.IMPORTFILES.column('#2', stretch=YES)
         self.IMPORTFILES.bind("<<TreeviewSelect>>", self.selectTreeRow)
         self.IMPORTFILES["displaycolumns"] = ("Label")
-        self.IMPORTFILES.pack()
+        self.yscroll =Scrollbar(self.IMPORTFILESFRAME, orient=VERTICAL, command=self.IMPORTFILES.yview)
+        self.IMPORTFILES.config(yscrollcommand = self.yscroll.set)
+        self.IMPORTFILES.pack(side=LEFT)
+        self.yscroll.pack(side=LEFT,fill=Y)
+        self.IMPORTFILESFRAME.pack()
         self.ADDBUTTON = Button(self)
         self.ADDBUTTON["text"] = "Add to Project"
         self.ADDBUTTON["command"] = self.addFiles
         self.ADDBUTTON.pack()
         self.pack()
-
+        
+        
 class PickHeaders(Frame):
     def genFFT(self):
         checkBoxState = self.HEADERS.state()
@@ -127,20 +135,19 @@ class PickHeaders(Frame):
                 self.selectedDataColumns.append(key)
         self.parent.tc.columns=self.selectedDataColumns
         self.parent.tc.convert_all_csv()
-        t = Thread(target=self.parent.tc.convert_all_csv)
+        t = Thread(target=self.parent.tc.convert_all_csv)#, args=(self.parent.ConfigureScreen.method, self.parent.ConfigureScreen.chunksize, self.parent.ConfigureScreen.fftsize))
         t.start()
         self.parent.notebook.pack_forget()
-        self.parent.config(cursor="wait")
-        #pack progress bar
+        #pack progreebar
         pb_hd = Progressbar(self.parent, orient='horizontal', mode='indeterminate')
         pb_hd.pack()
         pb_hd.start(50)
         t.join()
         #unpack progreebar
-        #pb_hd.stop()
-        #pb_hd.pack_forget()
-        #self.parent.notebook.pack()
-        #self.parent.config(cursor="")
+        pb_hd.stop()
+        pb_hd.pack_forget()
+        self.parent.notebook.pack()
+        messagebox.showinfo('Info','FFT generation complete')
 
     def refresh(self):
         self.HEADERS.pack_forget()
@@ -175,13 +182,64 @@ class FFTPreviewScreen(Frame):
         self.LBL.pack()
         self.pack()
 
+'''
+class ConfigureScreen(Frame):
+    def changeconfig(self):
+        try:
+            self.chunksize = int(self.input1.get())
+            self.fftsize = int(self.input2.get())
+            self.method = self.methodvariable.get()
+
+        except ValueError :
+            print('not a valid config, using default')
+        print(self.chunksize)
+        print(self.fftsize)
+        print(self.method)
+
+    def __init__(self, parent):
+        Frame.__init__(self, parent)
+        self.parent = parent
+
+        self.chunksize = 64
+        self.fftsize = 128
+        self.method = 'fft'
+
+
+
+        self.label1 = Label(self, text="Chunk Size : ", )
+        self.label1.grid(row=0,column=0, sticky=NSEW)
+        self.label2 = Label(self, text="FFT Size : ")
+        self.label2.grid(row=1, column=0, sticky=NSEW)
+        self.label3 = Label(self, text="Method : ")
+        self.label3.grid(row=2, column=0, sticky=NSEW)
+
+        self.methodoptions = ['fft', 'fft1', 'fft2']
+        self.methodvariable = StringVar(self)
+        #self.methodvariable.set(self.methodoptions[0])  # default value
+
+        self.input1 = Entry(self, width=31)
+        self.input1.grid(row=0,column=1, sticky=NSEW)
+        self.input2 = Entry(self, width=31)
+        self.input2.grid(row=1, column=1, sticky=NSEW)
+
+        self.input3 = OptionMenu(self, self.methodvariable, *(self.methodoptions))
+        self.input3.grid(row=2, column=1, sticky=NSEW)
+
+        self.save = Button(self, text='Save', command=self.changeconfig).grid(row=3, column=1,columnspan = 2)
+
+
+'''
 class ConfigureScreen(Frame):
     def save(self):
-        print(self.parent.configFile)
-        fh = open(self.parent.configFile, 'w')
-        fh.write(self.CONFIG.get("1.0",END))
-        fh.close()
+        # Disable the save button 
         self.SAVEBUTTON.config(state=DISABLED)
+        #Save the config file
+        with open(self.parent.configFile, 'w') as fh:
+            fh.write(self.CONFIG.get("1.0",END))
+        #Generate model
+        self.parent.tc.build_model()
+        #Re-enable save button
+        self.SAVEBUTTON.config(state=NORMAL)
 
     def setDirty(self, event):
         self.dirty = True
@@ -191,7 +249,7 @@ class ConfigureScreen(Frame):
         Frame.__init__(self, parent)
         self.parent = parent
         self.dirty = False
-        self.parent.configFile = os.path.join(self.parent.projectPath, "timechange.cfg")
+        self.parent.configFile = os.path.join(self.parent.projectPath, "parameters.conf")
         if not os.path.isfile(self.parent.configFile):
             open(self.parent.configFile, 'a').close()
         self.CONFIG = Text(self)
@@ -203,18 +261,35 @@ class ConfigureScreen(Frame):
         self.SAVEBUTTON = Button(self)
         self.SAVEBUTTON["text"] = "Save"
         self.SAVEBUTTON["command"] = self.save
-        self.SAVEBUTTON.config(state=DISABLED)
         self.SAVEBUTTON.pack()
         self.CONFIG.bind("<<Modified>>", self.setDirty)
         self.pack()
 
+
 class ResultsScreen(Frame):
     def __init__(self, parent):
         Frame.__init__(self, parent)
+        self.parent = parent
         self.LBL = Label(self)
         self.LBL["text"] = "Results go here. Work in Progress..."
         self.LBL.pack()
-        self.parent = parent
+        #Button for training
+        def train_in_thread():
+            #Disable the button
+            self.TRAINBUTTON.config(state=DISABLED)
+            #Perform training
+            training_results = self.parent.tc.train()
+            #Re-enable the button
+            self.TRAINBUTTON.config(state=NORMAL)
+            #Return the results
+            results_message = "Training Results\n"
+            results_message += "Training Accuracy: {}\n".format(training_results["acc"][-1])
+            results_message += "Training Loss: {}".format(training_results["loss"][-1])
+            self.LBL["text"] = results_message
+        self.TRAINBUTTON = Button(self)
+        self.TRAINBUTTON["text"] = "Train"
+        self.TRAINBUTTON["command"] = train_in_thread
+        self.TRAINBUTTON.pack()
         self.pack()
 
 class ProjectHomeScreen(Frame):
