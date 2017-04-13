@@ -70,6 +70,7 @@ class LoadFilesScreen(Frame):
         for selectedItem in selectedItems:
             self.IMPORTFILES.set(selectedItem, column="Label", value=self.LABEL.get())
 
+
     def addFiles(self):
         for item in self.IMPORTFILES.get_children():
             file = self.IMPORTFILES.item(item)["text"]
@@ -103,7 +104,8 @@ class LoadFilesScreen(Frame):
         self.IMPORTFILESBUTTON["text"] = "Select Files"
         self.IMPORTFILESBUTTON["command"] = self.importFiles
         self.IMPORTFILESBUTTON.pack()
-        self.IMPORTFILES = Treeview(self, columns=('Label', 'fullpath'))
+        self.IMPORTFILESFRAME = Frame(self)
+        self.IMPORTFILES = Treeview(self.IMPORTFILESFRAME, columns=('Label', 'fullpath'))
         self.IMPORTFILES.heading('#0', text='File')
         self.IMPORTFILES.heading('#1', text='Label')
         self.IMPORTFILES.heading('#2', text='fullpath')
@@ -112,13 +114,18 @@ class LoadFilesScreen(Frame):
         self.IMPORTFILES.column('#2', stretch=YES)
         self.IMPORTFILES.bind("<<TreeviewSelect>>", self.selectTreeRow)
         self.IMPORTFILES["displaycolumns"] = ("Label")
-        self.IMPORTFILES.pack()
+        self.yscroll =Scrollbar(self.IMPORTFILESFRAME, orient=VERTICAL, command=self.IMPORTFILES.yview)
+        self.IMPORTFILES.config(yscrollcommand = self.yscroll.set)
+        self.IMPORTFILES.pack(side=LEFT)
+        self.yscroll.pack(side=LEFT,fill=Y)
+        self.IMPORTFILESFRAME.pack()
         self.ADDBUTTON = Button(self)
         self.ADDBUTTON["text"] = "Add to Project"
         self.ADDBUTTON["command"] = self.addFiles
         self.ADDBUTTON.pack()
         self.pack()
-
+        
+        
 class PickHeaders(Frame):
     def genFFT(self):
         checkBoxState = self.HEADERS.state()
