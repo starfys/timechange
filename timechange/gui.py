@@ -29,15 +29,16 @@ class WelcomeScreen(Frame):
     def defaultProject(self):
         try:
             self.parent.tc = timechange.TimeChange()
+            projectDir = os.path.join(os.path.expanduser('~'), 'timechange', 'default')
+            #self.parent.loadProject(projectDir)
+            t = Thread(target =self.parent.loadProject, args=(projectDir,))
+            t.start()
         except Exception as e:
             print("Issue with default project!")
             s = str(e)
-            print(e)
+            messagebox.showinfo("Error", e)
+            
 
-        projectDir = os.path.join(os.path.expanduser('~'), 'timechange', 'default')
-        #self.parent.loadProject(projectDir)
-        t = Thread(target =self.parent.loadProject, args=(projectDir,))
-        t.start()
 
     def loadProject(self):
         projectDir = filedialog.askdirectory(initialdir=os.path.expanduser("~"))
@@ -61,6 +62,7 @@ class WelcomeScreen(Frame):
         self.LOADEXISTINGBUTTON = Button(self)
         self.LOADEXISTINGBUTTON["text"] = "Load Existing Project"
         self.LOADEXISTINGBUTTON["command"] = self.loadProject
+        self.LOADEXISTINGBUTTON.config(state=DISABLED)
         self.LOADEXISTINGBUTTON.pack()
         self.pack()
 
