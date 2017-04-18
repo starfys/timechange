@@ -62,7 +62,7 @@ class WelcomeScreen(Frame):
         self.LOADEXISTINGBUTTON = Button(self)
         self.LOADEXISTINGBUTTON["text"] = "Load Existing Project"
         self.LOADEXISTINGBUTTON["command"] = self.loadProject
-        self.LOADEXISTINGBUTTON.config(state=DISABLED)
+        self.LOADEXISTINGBUTTON.config(state=DISABLED) # once there is a way to save projects, remove this line
         self.LOADEXISTINGBUTTON.pack()
         self.pack()
 
