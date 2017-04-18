@@ -36,9 +36,7 @@ class WelcomeScreen(Frame):
         except Exception as e:
             print("Issue with default project!")
             s = str(e)
-            messagebox.showinfo("Error", e)
-            
-
+            messagebox.showinfo("Error", e) # Show error message
 
     def loadProject(self):
         projectDir = filedialog.askdirectory(initialdir=os.path.expanduser("~"))
