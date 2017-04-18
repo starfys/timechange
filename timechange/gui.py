@@ -27,7 +27,13 @@ class CheckBoxSet(Frame):
 
 class WelcomeScreen(Frame):
     def defaultProject(self):
-        self.parent.tc = timechange.TimeChange()
+        try:
+            self.parent.tc = timechange.TimeChange()
+        except Exception as e:
+            print("Issue with default project!")
+            s = str(e)
+            print(e)
+
         projectDir = os.path.join(os.path.expanduser('~'), 'timechange', 'default')
         #self.parent.loadProject(projectDir)
         t = Thread(target =self.parent.loadProject, args=(projectDir,))
