@@ -84,8 +84,19 @@ class LoadFilesScreen(Frame):
         #self.parent.updateExistingFiles()
         t1 = Thread(target=self.parent.updateExistingFiles)
         t1.start()
-        # t1.join()
+        t1.join()
+        messagebox.showinfo('Title','Done')
+        
+        '''
+            t = Thread(target=self.parent.tc.add_training_file, args=(label, fullpath))
+            t.start()
+            t.join()
 
+        #self.parent.updateExistingFiles()
+        t1 = Thread(target=self.parent.updateExistingFiles)
+        t1.start()
+        # t1.join()
+        '''
 
     def __init__(self, parent):
         Frame.__init__(self, parent)
