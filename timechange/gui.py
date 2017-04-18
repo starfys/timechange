@@ -75,6 +75,8 @@ class LoadFilesScreen(Frame):
         for item in self.IMPORTFILES.get_children():
             file = self.IMPORTFILES.item(item)["text"]
             label = self.IMPORTFILES.item(item)["values"][0]
+            if label == "":
+            	label = "unlabeled"
             fullpath = self.IMPORTFILES.item(item)["values"][1]
             self.parent.tc.add_training_file(label, fullpath)
             t = Thread(target=self.parent.tc.add_training_file, args=(label, fullpath))
