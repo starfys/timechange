@@ -30,7 +30,7 @@ THE SOFTWARE.
 import numpy as np
 from scipy import signal
 
-def extract(time_series, method="fft", chunk_size=64, fft_size=128):
+def extract(time_series, method, **kwargs):
     """Extracts features from a time series or array of time series and outputs an image
     Keyword arguments:
     time_series -- A numpy array or array of numpy arrays representing the time series data
@@ -39,11 +39,11 @@ def extract(time_series, method="fft", chunk_size=64, fft_size=128):
     """
     #Switches on method
     if method == "fft":
-        return simple_fourier(time_series, chunk_size=chunk_size, fft_size=fft_size)
+        return simple_fourier(time_series, **kwargs)
     elif method == "spectrogram":
         return spectrogram(time_series)
     else:
-        raise ValueError("Invalid feature extraction method")
+        raise Exception("Invalid feature extraction method")
 
 #Possible enhancements
 #TODO: separate real and imaginary components so as not to lose data
