@@ -152,7 +152,8 @@ def build_model(project_path):
                   metrics=['accuracy'])
     #Output the model
     return model
-def train(project_path, model):
+
+def train(project_path, model, output_queue):
     """Trains a neural net model on the project's dataset
     Parameters:
     project_path -- 
@@ -184,13 +185,28 @@ def train(project_path, model):
             batch_size=64, #TODO: customize this
             shuffle=True, #Shuffle the data inputs. TODO: set a random seed
             class_mode=class_mode) #TODO: consider binary mode for systems with only 2 labels
+    #Design a callback to store training progress
+    import keras
+    class ProgressBarCallback(keras.callbacks.Callback):
+        def on_train_begin(self, logs={}):
+            return
+        def on_train_end(self, logs={}):
+            return
+        def on_epoch_begin(self, epoch, logs={}):
+            return
+        def on_epoch_end(self, epoch, logs={}):
+            print("Training epoch {} ended".format(epoch))
+            return
+        def on_batch_begin(self, batch, logs={}):
+            return
     #Train the model
     #TODO: k-fold validation
     try:
         return model.fit_generator(
             train_generator,
             samples_per_epoch=len(train_generator.filenames), #TODO: better solution
-            nb_epoch=20).history #TODO: customize this
+            nb_epoch=20,
+            callbacks=[ProgressBarCallback()]).history #TODO: customize this
     except Exception as err:
         #TODO: Handle error better
         raise Exception("Something went wrong with the training process: {}".format(str(err)))
@@ -226,7 +242,7 @@ def worker_thread(project_path, input_queue, output_queue):
             #Attempt to train the model
             try:
                 #Run training
-                results = train(project_path, model)
+                results = train(project_path, model, output_queue)
                 #Save the model's most recent weights
                 model.save_weights(path.join(project_path, "models", "latest.h5"))
                 #Inform the main thread that the model trained properly
