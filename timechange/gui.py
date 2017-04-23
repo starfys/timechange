@@ -16,12 +16,35 @@ class CheckBoxSet(Frame):
         Frame.__init__(self, parent)
         self.parent = parent
         self.vars = []
+        self.boxes = {}
         self.items = {}
         for pick in picks:
-            var = IntVar()
-            chkbox = Checkbutton(self, text=pick, variable=var)
-            chkbox.pack()
-            self.items[pick] = var
+            checkbox_var = IntVar()
+            checkbox_var.set(1)
+            checkbox = Checkbutton(self, text=pick, variable=checkbox_var)
+            checkbox.pack()
+            self.items[pick] = checkbox_var
+            self.boxes[pick] = checkbox
+    def update_choices(self, picks):
+        """Changes the choices for the boxes
+        Parameters
+            picks -- List of strings representing the choices"""
+        #Delete existing checkboxes
+        for box in self.boxes.values():
+            box.pack_forget()
+            box.destroy()
+        #Clear internal state
+        self.vars=[]
+        self.boxes = {}
+        self.items = {}
+        #Set checkboxes
+        for pick in picks:
+            checkbox_var = IntVar()
+            checkbox_var.set(1)
+            checkbox = Checkbutton(self, text=pick, variable=checkbox_var)
+            checkbox.pack()
+            self.items[pick] = checkbox_var
+            self.boxes[pick] = checkbox
     def state(self):
         return self.items
 
@@ -33,10 +56,10 @@ class WelcomeScreen(Frame):
             #self.parent.loadProject(projectDir)
             t = Thread(target =self.parent.loadProject, args=(projectDir,))
             t.start()
+            #Start event loop
+            self.parent.handle_queue()
         except Exception as e:
-            print("Issue with default project!")
-            s = str(e)
-            messagebox.showinfo("Error", e) # Show error message
+            messagebox.showerror("Project Loading Error", str(e)) # Show error message
 
     def loadProject(self):
         projectDir = filedialog.askdirectory(initialdir=os.path.expanduser("~"))
@@ -146,55 +169,87 @@ class LoadFilesScreen(Frame):
         
         
 class PickHeaders(Frame):
-    def genFFT(self):
-        checkBoxState = self.HEADERS.state()
-        self.selectedDataColumns = []
-        for key in checkBoxState:
-           if checkBoxState[key] == 0:
-                self.selectedDataColumns.append(key)
-        self.parent.tc.columns=self.selectedDataColumns
+    def transform_data(self):
+        columns = []
+        for column_name, state in self.column_boxes.items.items():
+            if state == 1:
+                columns.append(column_name)
+        self.parent.tc.set_columns(columns)
+        #Set transform parameters
+        try:
+            self.parent.tc.set_transform_parameters(method = self.method.get(),
+                                                    chunk_size = str(int(self.chunksize_entry.get())),
+                                                    fft_size = str(int(self.fftsize_entry.get())))
+        except Exception as exc:
+            messagebox.showerror("Error", "Invalid transformation parameters")
+            return
+        #Initialize training
         self.parent.tc.convert_all_csv()
-        t = Thread(target=self.parent.tc.convert_all_csv)#, args=(self.parent.ConfigureScreen.method, self.parent.ConfigureScreen.chunksize, self.parent.ConfigureScreen.fftsize))
-        t.start()
         self.parent.notebook.pack_forget()
-        #Fix: some system's don't have wait cursor
+        #Fix: some systems don't have wait cursor
         try:
             self.parent.config(cursor="wait")
         except:
             pass
         #pack progress bar
-        pb_hd = Progressbar(self.parent, orient='horizontal', mode='indeterminate')
-        pb_hd.pack()
-        pb_hd.start(50)
-        t.join()
+        #pb_hd = Progressbar(self.parent, orient='horizontal', mode='indeterminate')
+        #pb_hd.pack()
+        #pb_hd.start(50)
+        #t.join()
         #unpack progreebar
-        pb_hd.stop()
-        pb_hd.pack_forget()
+        #pb_hd.stop()
+        #pb_hd.pack_forget()
         self.parent.notebook.pack()
-        messagebox.showinfo('Info','FFT generation complete')
-
     def refresh(self):
-        self.HEADERS.pack_forget()
-        self.HEADERS = CheckBoxSet(self, self.parent.dataColumns)
-        self.HEADERS.pack()
+        self.column_boxes.update_choices(self.parent.dataColumns)
 
     def __init__(self, parent):
         Frame.__init__(self, parent)
         self.parent = parent
-        self.LBL = Label(self)
-        self.LBL["text"] =  "                                      Instructions\n" \
+        #Instructions to user
+        instruction_label = Label(self)
+        instruction_label["text"] =  "                                      Instructions\n" \
                             "\n" \
                             "Select any columns you wish to exclude from the fourier transform.\n" \
                             "Any columns that are not castable to a number will result in a crash.\n" \
                             "Hint: make sure to exclude timestamps\n"
-        self.LBL.pack()
-        self.HEADERS = CheckBoxSet(self, self.parent.dataColumns)
-        self.HEADERS.pack()
+        #Label for column list
+        column_label = Label(self)
+        column_label["text"] = "Columns to exclude"
+        #List of columns
+        self.column_boxes = CheckBoxSet(self, self.parent.dataColumns)
         self.parent.updateExistingFiles()
-        self.GENFFTBUTTON = Button(self)
-        self.GENFFTBUTTON["text"] = "Generate FFT"
-        self.GENFFTBUTTON["command"] = self.genFFT
-        self.GENFFTBUTTON.pack()
+        #Create configuration for fft parameters
+        #Label for method input
+        method_label = Label(self, text="Method : ")
+        #Types of transforms that can be performed
+        methods = ["fft", "nothing"]
+        #Used to store the chosen method
+        self.method = StringVar(self)
+        self.method.set(methods[0])
+        #Used to read in the type of transform to perform
+        self.method_entry = OptionMenu(self, self.method, methods[0], *methods)
+        #Read in chunk size and fft size
+        chunksize_label = Label(self, text="Chunk Size", )
+        self.chunksize_entry = Entry(self, width=5)
+        fftsize_label = Label(self, text="FFT Size")
+        self.fftsize_entry = Entry(self, width=5)
+        #Used to initiate transformation
+        self.transform_button = Button(self)
+        self.transform_button["text"] = "Transform Data"
+        self.transform_button["command"] = self.transform_data
+        #Pack elements
+        instruction_label.pack()
+        column_label.pack()
+        self.column_boxes.pack()
+        method_label.pack()
+        self.method_entry.pack()
+        chunksize_label.pack()
+        self.chunksize_entry.pack()
+        fftsize_label.pack()
+        self.fftsize_entry.pack()
+        self.transform_button.pack()
+        #Pack object
         self.pack()
 
 class FFTPreviewScreen(Frame):
@@ -206,53 +261,6 @@ class FFTPreviewScreen(Frame):
         self.LBL.pack()
         self.pack()
 
-'''
-class ConfigureScreen(Frame):
-    def changeconfig(self):
-        try:
-            self.chunksize = int(self.input1.get())
-            self.fftsize = int(self.input2.get())
-            self.method = self.methodvariable.get()
-
-        except ValueError :
-            print('not a valid config, using default')
-        print(self.chunksize)
-        print(self.fftsize)
-        print(self.method)
-
-    def __init__(self, parent):
-        Frame.__init__(self, parent)
-        self.parent = parent
-
-        self.chunksize = 64
-        self.fftsize = 128
-        self.method = 'fft'
-
-
-
-        self.label1 = Label(self, text="Chunk Size : ", )
-        self.label1.grid(row=0,column=0, sticky=NSEW)
-        self.label2 = Label(self, text="FFT Size : ")
-        self.label2.grid(row=1, column=0, sticky=NSEW)
-        self.label3 = Label(self, text="Method : ")
-        self.label3.grid(row=2, column=0, sticky=NSEW)
-
-        self.methodoptions = ['fft', 'fft1', 'fft2']
-        self.methodvariable = StringVar(self)
-        #self.methodvariable.set(self.methodoptions[0])  # default value
-
-        self.input1 = Entry(self, width=31)
-        self.input1.grid(row=0,column=1, sticky=NSEW)
-        self.input2 = Entry(self, width=31)
-        self.input2.grid(row=1, column=1, sticky=NSEW)
-
-        self.input3 = OptionMenu(self, self.methodvariable, *(self.methodoptions))
-        self.input3.grid(row=2, column=1, sticky=NSEW)
-
-        self.save = Button(self, text='Save', command=self.changeconfig).grid(row=3, column=1,columnspan = 2)
-
-
-'''
 class ConfigureScreen(Frame):
     def save(self):
         # Disable the save button 
@@ -297,24 +305,24 @@ class ResultsScreen(Frame):
         self.LBL = Label(self)
         self.LBL["text"] = "Results go here. Work in Progress..."
         self.LBL.pack()
-        #Button for training
-        def train_in_thread():
-            #Disable the button
-            self.TRAINBUTTON.config(state=DISABLED)
-            #Perform training
-            training_results = self.parent.tc.train()
-            #Re-enable the button
-            self.TRAINBUTTON.config(state=NORMAL)
-            #Return the results
-            results_message = "Training Results\n"
-            results_message += "Training Accuracy: {}\n".format(training_results["acc"][-1])
-            results_message += "Training Loss: {}".format(training_results["loss"][-1])
-            self.LBL["text"] = results_message
         self.TRAINBUTTON = Button(self)
         self.TRAINBUTTON["text"] = "Train"
-        self.TRAINBUTTON["command"] = train_in_thread
+        self.TRAINBUTTON["command"] = self.start_training
         self.TRAINBUTTON.pack()
         self.pack()
+    #Button for training
+    def start_training(self):
+        #Disable the button
+        self.TRAINBUTTON.config(state=DISABLED)
+        #Perform training
+        self.parent.tc.train()
+        #Re-enable the button
+        self.TRAINBUTTON.config(state=NORMAL)
+        #Return the results
+        #results_message = "Training Results\n"
+        #results_message += "Training Accuracy: {}\n".format(training_results["acc"][-1])
+        #results_message += "Training Loss: {}".format(training_results["loss"][-1])
+        #self.LBL["text"] = results_message
 
 class ProjectHomeScreen(Frame):
     def __init__(self, parent):
@@ -364,13 +372,32 @@ class Application(Frame):
         self.ResultsScreen = ResultsScreen(self)
         self.notebook.add(self.ProjectHomeScreen, text="Home")
         self.notebook.add(self.LoadFilesScreen, text="Load Files")
-        self.notebook.add(self.PickHeadersScreen, text="Pick Headers")
+        self.notebook.add(self.PickHeadersScreen, text="Transform Data")
         self.notebook.add(self.FFTPreviewScreen, text="FFT Preview")
         self.notebook.add(self.ConfigureScreen, text="Configure Classifier")
         self.notebook.add(self.ResultsScreen, text="Results")
         self.notebook.pack()
         self.PickHeadersScreen.refresh()
-
+    def handle_queue(self):
+        #Check for events on the queue
+        try:
+            event = self.tc.result_queue.get_nowait()
+            if event["type"] == "success":
+                if event["job"] == "transform":
+                    messagebox.showinfo("Success", "Data was successfully transformed.")
+                elif event["job"] == "build_model":
+                    messagebox.showinfo("Success", "Model build was successful.")
+                elif event["job"] == "train":
+                    print(event["message"])
+                    messagebox.showinfo("Success", "Model training complete.")
+            elif event["type"] == "error":
+                error_title = {"transform":"Data Transformaton Error",
+                               "build_model": "Model Build Error",
+                               "train": "Training Error"}[event["job"]]
+                messagebox.showerror(error_title, event["message"])
+        except:
+            pass
+        self.after(250, self.handle_queue)
     def __init__(self, master=None):
         Frame.__init__(self, master)
         self.WelcomeScreen = WelcomeScreen(self)

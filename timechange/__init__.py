@@ -59,7 +59,7 @@ num_blocks = 3
 #If the size of this list is less than num_blocks, the last value
 #will be used for the remaining values
 
-num_filters = 64,32,32
+num_filters = 16,8,8
 
 #Learning rate for training
 learning_rate = 1e-2
@@ -180,17 +180,19 @@ class TimeChange:
         """Sets the CSV columns to be used by the transform process"""
         #Load the config for transform parameters
         transform_config = ConfigParser()
-        transform_config.read(path.join(project_path, "transform.conf"))
+        transform_config.read(path.join(self.project_path, "transform.conf"))
         transform_config["DEFAULT"]["columns"] = ",".join(map(str, columns))
-        transform_config.write(path.join(project_path, "transform.conf"))
+        with open(path.join(self.project_path, "transform.conf"), "w") as transform_config_file:
+            transform_config.write(transform_config_file)
     def set_transform_parameters(self, **kwargs):
         """Writes transform parameters to the transform configuration"""
         #Load the config for transform parameters
         transform_config = ConfigParser()
-        transform_config.read(path.join(project_path, "transform.conf"))
+        transform_config.read(path.join(self.project_path, "transform.conf"))
         for parameter, value in kwargs.items():
             transform_config["DEFAULT"][parameter] = value
-        transform_config.write(path.join(project_path, "transform.conf"))
+        with open(path.join(self.project_path, "transform.conf"), "w") as transform_config_file:
+            transform_config.write(transform_config_file)
     def get_csv_columns(self, file_path):
         """Reads a csv file and returns the column names
         Keyword arguments:

@@ -41,7 +41,9 @@ def extract(time_series, method, **kwargs):
     if method == "fft":
         return simple_fourier(time_series, **kwargs)
     elif method == "spectrogram":
-        return spectrogram(time_series)
+        return spectrogram(time_series, **kwargs)
+    elif method == "nothing":
+        return nothing(time_series)
     else:
         raise Exception("Invalid feature extraction method")
 
@@ -85,7 +87,20 @@ def simple_fourier(time_series, chunk_size=64, fft_size=128):
     #Shape of this array is 3, W, H
     return np.stack((time_series, time_series, time_series), axis=2)
 
-
+def nothing(time_series):
+    """Normalizes the data to positive values and returns it as a 2d array
+    Parameters:
+        time_series -- The data to transform
+    """
+    #Bring all values up to positive
+    time_series -= np.min(time_series, axis=1).reshape(a.shape[0], 1)
+    #Normalize all rows per row
+    #Get normalization values
+    max_values = np.max(time_series, axis=1).reshape(time_series.shape[0], 1)
+    #Fix divby0 errors
+    max_values[max_values == 0] = 1
+    #Return the array normalized
+    return np.array([time_series / max_values] * 3)
 def spectrogram(time_series):
     """Performs a basic fourier transform across the entire time series. The imaginary results are normalized.
     Keyword arguments:

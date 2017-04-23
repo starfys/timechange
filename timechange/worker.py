@@ -123,13 +123,19 @@ def build_model(project_path):
             final_activation = 'softmax'
             loss_measure = 'categorical_crossentropy'
         #Add the initial blocks
-        model.add(Convolution2D(8, 3, 3,  activation='relu', input_shape=(3, image_height, image_width), dim_ordering='th'))
+        model.add(Convolution2D(num_filters[0], 3, 3,
+                                activation='relu',
+                                input_shape=(3, image_height, image_width),
+                                dim_ordering='th'))
         model.add(MaxPooling2D(pool_size=(2,2), dim_ordering='th'))
         #Add convolutional blocks. n-1 because the first was added already
-        for _ in range(num_blocks - 1):
+        for layer in range(1, num_blocks):
             #TODO: Allow configuring the parameters on these
-            model.add(Convolution2D(8, 3, 3,  activation='relu', dim_ordering='th'))
-            model.add(MaxPooling2D(pool_size=(2,2), dim_ordering='th'))
+            model.add(Convolution2D(num_filters[layer], 3, 3,
+                                    activation='relu',
+                                    dim_ordering='th'))
+            model.add(MaxPooling2D(pool_size=(2,2),
+                                   dim_ordering='th'))
         #Create the final layers
         model.add(Flatten())
         #TODO: Allow configuring the parameters and existence of these
@@ -202,9 +208,9 @@ def worker_thread(project_path, input_queue, output_queue):
                 #Run the conversion process
                 convert_all_csv(project_path)
                 #Inform the main thread that transformation is finished
-                output_queue.put({"status":"success", "job":"transform"})
+                output_queue.put({"type":"success", "job":"transform"})
             except Exception as err:
-                output_queue.put({"status":"error", "job":"transform", "message": str(err)})
+                output_queue.put({"type":"error", "job":"transform", "message": str(err)})
         #Build the keras model
         elif job["command"] == "build_model":
             #Attempt to generate the model
@@ -212,9 +218,9 @@ def worker_thread(project_path, input_queue, output_queue):
                 #Build the model
                 model = build_model(project_path)
                 #Inform the main thread that model generated properly
-                output_queue.put({"status":"success", "job":"build_model"})
+                output_queue.put({"type":"success", "job":"build_model"})
             except Exception as err:
-                output_queue.put({"status":"error", "job":"build_model", "message": str(err)})
+                output_queue.put({"type":"error", "job":"build_model", "message": str(err)})
         #Train the keras model
         elif job["command"] == "train":
             #Attempt to train the model
@@ -224,8 +230,8 @@ def worker_thread(project_path, input_queue, output_queue):
                 #Save the model's most recent weights
                 model.save_weights(path.join(project_path, "models", "latest.h5"))
                 #Inform the main thread that the model trained properly
-                output_queue.put({"status":"success", "job":"train", "message": results})
+                output_queue.put({"type":"success", "job":"train", "message": results})
             except Exception as err:
-                output_queue.put({"status":"error", "job":"train", "message": str(err)})
+                output_queue.put({"type":"error", "job":"train", "message": str(err)})
         elif job["command"] == "shutdown":
             break
