@@ -30,22 +30,22 @@ THE SOFTWARE.
 """
 
 from collections import defaultdict
+from queue import Queue
+from threading import Thread
 import sys
 import os
 from os import path
-from configparser import ConfigParser
 import shutil
+from configparser import ConfigParser
 import numpy as np
 import pandas
 from PIL import Image
-from . import transform
-from . import models
+from . import worker
 
 #Keras includes
-from keras.preprocessing.image import ImageDataGenerator
 
-#Default config file. Included here due to tab issues
-default_config = """
+#Default parameter config file. Included here due to tab issues
+default_parameter_config = """
 [DEFAULT]
 #The type of neural net to generate
 #Settings for the chosen type will be stored under a
@@ -59,12 +59,23 @@ num_blocks = 3
 #If the size of this list is less than num_blocks, the last value
 #will be used for the remaining values
 
-num_filters = 64,32,32
+num_filters = 16,8,8
 
 #Learning rate for training
 learning_rate = 1e-2
 """
-
+#Default transform config file. Included here due to tab issues
+default_transform_config = """
+[DEFAULT]
+#CSV columns to read
+columns=
+#Type of transform to run
+method=fft
+#Size of the chunks
+chunk_size=64
+#Size of the fft output
+fft_size=128
+"""
 class TimeChange:
     def __init__(self, project_name="default", parent_folder=None):
         """Constructor
@@ -89,7 +100,10 @@ class TimeChange:
             os.mkdir(path.join(self.project_path, "models"))
             #Create a parameters file
             with open(path.join(self.project_path, "parameters.conf"), "w") as config_file:
-                config_file.write(default_config)
+                config_file.write(default_parameter_config)
+            #Create a transform file
+            with open(path.join(self.project_path, "transform.conf"), "w") as config_file:
+                config_file.write(default_transform_config)
         else:
             #Existing project
             #Folder names and the file types within them
@@ -127,12 +141,16 @@ class TimeChange:
                 raise Exception("{} cannot be a timechange project because {} does not exist".format(
                     self.project_path,
                     path.join(self.project_path, "parameters.conf")))
-
-
         #Stores what csv columns to use
         #TODO: store this value in a file instead of as a private member
         self.columns = None #Default values
-
+        # Create a queue to communicate with the worker thread
+        self.worker_queue = Queue()
+        # Create a queue to recieve messages from the worker thread
+        self.result_queue = Queue()
+        # Start a worker thread, passing argument
+        self.worker = Thread(target=worker.worker_thread, name="worker", args=(self.project_path, self.worker_queue, self.result_queue), daemon=True)
+        self.worker.start()
     def add_training_file(self, label, file_path):
         """Adds a training file to the dataset under a specific label
         Keyword arguments:
@@ -146,7 +164,6 @@ class TimeChange:
         #Uses the name of the original file.
         #TODO: generate better name
         shutil.copyfile(file_path, path.join(self.project_path, "csv", label, path.split(file_path)[1]))
-
     def remove_training_file(self, label, filename):
         """Removes a training file from a label
         Keyword arguments:
@@ -159,12 +176,23 @@ class TimeChange:
         if len(os.scandir(path.join(self.project_path, "csv", label))) == 0:
             #If this was the last entry, delete the label
             shutil.rmtree(path.join(self.project_path, "csv", label))
-    def get_csv_labels(self):
-        """Gets a list of labels based on the csv data set. Labels are always in alphabetical order"""
-        return sorted([entry.name for entry in os.scandir(path.join(self.project_path, "csv"))])
-    def get_image_labels(self):
-        """Gets a list of labels based on the csv data set. Labels are always in alphabetical order"""
-        return sorted([entry.name for entry in os.scandir(path.join(self.project_path, "images"))])
+    def set_columns(self, columns):
+        """Sets the CSV columns to be used by the transform process"""
+        #Load the config for transform parameters
+        transform_config = ConfigParser()
+        transform_config.read(path.join(self.project_path, "transform.conf"))
+        transform_config["DEFAULT"]["columns"] = ",".join(map(str, columns))
+        with open(path.join(self.project_path, "transform.conf"), "w") as transform_config_file:
+            transform_config.write(transform_config_file)
+    def set_transform_parameters(self, **kwargs):
+        """Writes transform parameters to the transform configuration"""
+        #Load the config for transform parameters
+        transform_config = ConfigParser()
+        transform_config.read(path.join(self.project_path, "transform.conf"))
+        for parameter, value in kwargs.items():
+            transform_config["DEFAULT"][parameter] = value
+        with open(path.join(self.project_path, "transform.conf"), "w") as transform_config_file:
+            transform_config.write(transform_config_file)
     def get_csv_columns(self, file_path):
         """Reads a csv file and returns the column names
         Keyword arguments:
@@ -172,160 +200,23 @@ class TimeChange:
         Returns: A list of column names from the csv file
         """
         return list(pandas.read_csv(file_path, nrows=1).columns)
-    def convert_csv(self, input_file_path, method="fft", chunk_size=64, fft_size=128, data_length=None, output_file_path=None):
-        """Reads a csv file and returns the column names
-        Preconditions: self.columns is set or the user wants to use all csv columns 
-        Keyword arguments:
-        input_file_path -- CSV file_path to read from
-        method -- feature extraction method to use. Default: fft
-        chunk_size -- number of samples per chunk (used for FFT method)
-        output_file_path -- png file to output to. Uses a standard scheme if None
+    def convert_all_csv(self):
+        """Tells the worker thread to perform transformation on the csv data
+        Preconditions
+            CSV files have been added to the project with add_training_file
         """
-        # Set default file_path if no argument specified
-        # TODO: fix this to be more in line with the rest of the project structure
-        if output_file_path is None:
-            input_path = path.split(input_file_path)
-            input_path[-1] = "converted_{}.png".format(input_path[-1])
-            output_file_path = path.join(input_path)
-        # Read the csv into a numpy array
-        data = pandas.read_csv(input_file_path, usecols=self.columns).as_matrix().T
-        # Handle padding.
-        if data_length is not None:
-            pad_amount = data_length - data.shape[1]
-            data = np.pad(data, ((0,0), (0, pad_amount)), 'constant', constant_values=0.0)
-        # Extract features from the numpy array
-        # Uses same variable name since data is not needed after feature extraction
-        data = transform.extract(data, method=method, chunk_size=chunk_size, fft_size=fft_size)
-        # Generate an image from the resulting feature representation
-        img = Image.fromarray((data * 255).astype(np.uint8), "RGB")
-        #Save the image to the desired file path
-        img.save(output_file_path)
-        #Return the image's size
-        return img.size
-    def convert_all_csv(self, method="fft", chunk_size=64, fft_size=128):
-        """Iterates over the training files set and generates corresponding images
-        using the feature extraction method
-        Keyword arguments:
-        method -- Method used by extract_features to generate image data. Default: fft"""
-        # Set default columns if no argument specified
-        if not self.columns:
-            #Pick a file from the test set
-            random_csv_file = list(os.scandir(path.join(self.project_path, "csv")))[0].path
-            random_csv_file = list(os.scandir(random_csv_file))[0].path
-            self.columns = self.get_csv_columns(random_csv_file)
-        #Clear subfolders in image folder without deleting images folder
-        #This is to make sure old images don't stick around
-        #In case a file has been removed
-        #TODO: caching
-        for label in os.scandir(path.join(self.project_path, "images")):
-            #Get file path from direntry
-            label = path.abspath(label.path)
-            #Delete the folder
-            try:
-                shutil.rmtree(label)
-            #TODO: Handle exceptions better
-            except FileNotFoundError as _:
-                pass
-        #Store the number of data samples
-        self.num_samples = 0
-        #Get length of longest csv file
-        self.csv_length = 0
-        #Iterate over labels
-        for label in self.get_csv_labels():
-            #Iterate over a label's csv files
-            for csv_file in os.scandir(path.join(self.project_path, "csv", label)):
-                with open(csv_file.path, 'r') as csv_file_handle:
-                    #Get number of lines in file and keep track of longest file
-                    self.csv_length = max(self.csv_length, len(csv_file_handle.readlines()))
-        #Generate new images
-        #Iterate over labels
-        for label in self.get_csv_labels():
-            #Make a folder for the label
-            os.mkdir(path.join(self.project_path, "images", label))
-            #Iterate over a label's csv files
-            for csv_file in os.scandir(path.join(self.project_path, "csv", label)):
-                #Generate an image name from the original file's name
-                #Removes csv and adds png
-                new_name = '.'.join(csv_file.name.split('.')[:-1] + ['png'])
-                #TODO: make all csv files the same size by padding 0s to the smaller files
-                #Generate the image file
-                #Store the size of the image
-                #TODO: Store this in a config file
-                self.image_size = self.convert_csv(
-                        csv_file.path,
-                        method=method,
-                        chunk_size=chunk_size,
-                        fft_size=fft_size,
-                        data_length = self.csv_length,
-                        output_file_path=path.join(self.project_path, "images", label, new_name))
-                #Increment the number of samples
-                self.num_samples += 1
+        self.worker_queue.put({"command":"transform"})
     def build_model(self):
-        """Generates a neural net model based on the image size, the parameters set in parameters.conf,
-        and the number of output classes
-        Prerequisites: convert_all has been run"""
-        #Generate input shape from image parameters generated by input
-        if self.image_size is None:
-            raise Exception("Conversion process must occur before generating model")
-        input_shape = (3, *self.image_size)
-        #Load the configuration file
-        config = ConfigParser()
-        config.read(path.join(self.project_path, "parameters.conf"))
-        #Generate the model and store it
-        try:
-            #Try to generate a model
-            self.model = models.generate_model(len(self.get_image_labels()), input_shape, config)
-        except Exception as exc:
-            #Something went wrong.
-            raise exc
-    def train(self, num_epochs=10):
-        """Trains a neural net model on the project's dataset
-        Preconditions: A Keras model is stored to self.model,
-                       convert_all_csv(...) has been run and has generated images for training
+        """Tells the worker thread to build a keras model based on project_path/parameters.conf
+        Preconditions
+            A project_path/parameters.conf is a valid model parameter file
         """
-        #Check to see if a model has been generated
-        if self.model is None:
-            raise Exception("There is no model stored. Please generate a model before training")
-        #Create a training data generator from the images folder
-        train_generator = ImageDataGenerator(
-                rescale = 1.0/255.0, #Scale the 0-255 pixel values down to 0.0-1.0
-                dim_ordering = 'th' #samples, channels, width, height
-                ).flow_from_directory(
-                path.join(self.project_path, 'images'), #Read training data from the project's images dir
-                target_size=self.image_size, #Resize must be set or the generator will automatically choose dimensions
-                color_mode='rgb', #TODO: take another look at this
-                batch_size=64, #TODO: customize this
-                shuffle=True, #Shuffle the data inputs. TODO: set a random seed
-                class_mode="categorical") #TODO: consider binary mode for systems with only 2 labels
-        #Invert the label dictionary and store it
-        #TODO: Store this in a file
-        self.labels = {label: index for index, label in train_generator.class_indices.items()}
-        #Train the model
-        #TODO: k-fold validation
-        try:
-            return self.model.fit_generator(train_generator,
-                                    samples_per_epoch=self.num_samples, #TODO: better solution
-                                    nb_epoch=num_epochs).history #TODO: customize this
-        except Exception as err:
-            #TODO: Handle error better
-            raise Exception("Something went wrong with the training process")
-    def load_model(self, model_name):
-        """Loads a neural net model from a file
-        Keyword arguments:
-        input_filename -- h5 file to load the model from
+        self.worker_queue.put({"command":"build_model"})
+    def train(self):
+        """Tells the worker thread to start training a keras model based on the image data
+        Preconditions
+            Data has been generated with convert_all_csv
+            A valid model has been generated with build_model
         """
-        self.model.load_weights(path.join(self.project_path, "models", model_name))
-    def save_model(self, model_name):
-        """Saves the current neural net model
-        Keyword arguments:
-        output_filename -- The place the model will be stored. None stores it in the profile"""
-        #Handle default filenames
-
-        #Save the model
-        self.model.save_weights(path.join(self.project_path, "models", model_name))
-    def get_statistics(self):
-        """Gets statistics from the model
-        Return value: dictionary of statistical values
-        """
-        return {'accuracy':'not accurate'}
-        self.model.save_weights(output_filename)
+        self.worker_queue.put({"command":"train"})
+        return {"acc":[0], "loss":[0]}
