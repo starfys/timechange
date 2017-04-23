@@ -45,8 +45,6 @@ class CheckBoxSet(Frame):
             checkbox.pack()
             self.items[pick] = checkbox_var
             self.boxes[pick] = checkbox
-    def state(self):
-        return self.items
 
 class WelcomeScreen(Frame):
     def defaultProject(self):
@@ -172,7 +170,7 @@ class PickHeaders(Frame):
     def transform_data(self):
         columns = []
         for column_name, state in self.column_boxes.items.items():
-            if state == 1:
+            if state.get() == 1:
                 columns.append(column_name)
         self.parent.tc.set_columns(columns)
         #Set transform parameters
