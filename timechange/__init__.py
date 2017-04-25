@@ -45,8 +45,7 @@ from . import worker
 #Keras includes
 
 #Default parameter config file. Included here due to tab issues
-default_parameter_config = """
-[DEFAULT]
+default_parameter_config = """[DEFAULT]
 #The type of neural net to generate
 #Settings for the chosen type will be stored under a
 #section of the same name
@@ -65,8 +64,7 @@ num_filters = 16,8,8
 learning_rate = 1e-2
 """
 #Default transform config file. Included here due to tab issues
-default_transform_config = """
-[DEFAULT]
+default_transform_config = """[DEFAULT]
 #CSV columns to read
 columns=
 #Type of transform to run
@@ -193,13 +191,27 @@ class TimeChange:
             transform_config["DEFAULT"][parameter] = value
         with open(path.join(self.project_path, "transform.conf"), "w") as transform_config_file:
             transform_config.write(transform_config_file)
-    def get_csv_columns(self, file_path):
+    def get_transform_parameters(self):
+        """Gets the transform parameters"""
+        #Load the config for transform parameters
+        transform_config = ConfigParser()
+        transform_config.read(path.join(self.project_path, "transform.conf"))
+        return transform_config["DEFAULT"]
+    def get_csv_columns(self):
         """Reads a csv file and returns the column names
-        Keyword arguments:
-        file_path -- path of file to read from
-        Returns: A list of column names from the csv file
         """
-        return list(pandas.read_csv(file_path, nrows=1).columns)
+        try:
+            example_csv = os.scandir(os.scandir(path.join(self.project_path, "csv")).__next__()).__next__().path
+            return list(pandas.read_csv(example_csv, nrows=1).columns)
+        except:
+            return []
+    def get_csv_labels(self):
+        """Returns a list of csv labels from the project tree."""
+        return sorted([folder.name for folder in os.scandir(path.join(self.project_path, "csv"))])
+    def get_csv_filenames(self, label):
+        """Returns a list of csv filenames for a specific label from the project tree."""
+        return sorted([csv_file.name for csv_file in os.scandir(path.join(self.project_path, "csv", label))])
+
     def convert_all_csv(self):
         """Tells the worker thread to perform transformation on the csv data
         Preconditions

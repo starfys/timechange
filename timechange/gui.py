@@ -4,6 +4,7 @@ import os
 from tkinter import *
 import time
 from tkinter.ttk import *
+from tkinter import _setit
 from tkinter import messagebox
 from tkinter import filedialog
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
@@ -50,26 +51,13 @@ class WelcomeScreen(Frame):
     def defaultProject(self):
         try:
             self.parent.tc = timechange.TimeChange()
+            self.parent.columns = self.parent.tc.get_csv_columns() 
             projectDir = os.path.join(os.path.expanduser('~'), 'timechange', 'default')
-            #self.parent.loadProject(projectDir)
-            t = Thread(target =self.parent.loadProject, args=(projectDir,))
-            t.start()
+            self.parent.loadProject(projectDir)
             #Start event loop
             self.parent.handle_queue()
         except Exception as e:
             messagebox.showerror("Project Loading Error", str(e)) # Show error message
-
-    def loadProject(self):
-        projectDir = filedialog.askdirectory(initialdir=os.path.expanduser("~"))
-        dirname = os.path.dirname(os.path.realpath(projectDir))
-        basename = os.path.basename(os.path.realpath(projectDir))
-        try:
-            self.parent.tc = timechange.TimeChange(project_name=basename, parent_folder=dirname)
-            #self.parent.loadProject(projectDir)
-            t = Thread(target=self.parent.loadProject, args=(projectDir,))
-            t.start()
-        except:
-            messagebox.showerror("Error", "%s is an invalid project directory" % projectDir)
 
     def __init__(self, parent):
         Frame.__init__(self, parent)
@@ -78,16 +66,7 @@ class WelcomeScreen(Frame):
         self.DEFAULTBUTTON["text"] = "Default Project"
         self.DEFAULTBUTTON["command"] = self.defaultProject
         self.DEFAULTBUTTON.pack()
-        self.LOADEXISTINGBUTTON = Button(self)
-        self.LOADEXISTINGBUTTON["text"] = "Load Existing Project"
-        self.LOADEXISTINGBUTTON["command"] = self.loadProject
-        self.LOADEXISTINGBUTTON.config(state=DISABLED) # once there is a way to save projects, remove this line
-        self.LOADEXISTINGBUTTON.pack()
         self.pack()
-        #self.DEFAULTBUTTON.grid(row=0, column=1)
-        #self.LOADEXISTINGBUTTON.grid(row=1, column=1)
-        self.grid_rowconfigure(5, weight=1)
-        self.grid_columnconfigure(2, weight=1)
 
 class LoadFilesScreen(Frame):
     def importFiles(self):
@@ -110,27 +89,9 @@ class LoadFilesScreen(Frame):
             	label = "unlabeled"
             fullpath = self.IMPORTFILES.item(item)["values"][1]
             self.parent.tc.add_training_file(label, fullpath)
-            t = Thread(target=self.parent.tc.add_training_file, args=(label, fullpath))
-            t.start()
-            t.join()
-
-        #self.parent.updateExistingFiles()
-        t1 = Thread(target=self.parent.updateExistingFiles)
-        t1.start()
-        t1.join()
-        messagebox.showinfo('Title','Done')
-        
-        '''
-            t = Thread(target=self.parent.tc.add_training_file, args=(label, fullpath))
-            t.start()
-            t.join()
-
-        #self.parent.updateExistingFiles()
-        t1 = Thread(target=self.parent.updateExistingFiles)
-        t1.start()
-        # t1.join()
-        '''
-
+        self.parent.columns = self.parent.tc.get_csv_columns()
+        self.parent.TransformDataScreen.refresh()
+        messagebox.showinfo("Success", "Successfully added files")
     def __init__(self, parent):
         Frame.__init__(self, parent)
         self.parent = parent
@@ -168,17 +129,13 @@ class LoadFilesScreen(Frame):
         self.ADDBUTTON["command"] = self.addFiles
         self.ADDBUTTON.pack()
         self.pack()
-        # self.LABELLBL.grid(row=0, column=0)
-        # self.IMPORTFILESBUTTON .grid(row=1, column=0)
-        # self.IMPORTFILESFRAME.grid(row=2, column=0)
-        # self.IMPORTFILES.grid(row=3, column=0)
-        # self.ADDBUTTON.grid(row=4, column=0)
-        self.grid_rowconfigure(5, weight=1)
-        self.grid_columnconfigure(2, weight=1)
         
         
 class PickHeaders(Frame):
     def transform_data(self):
+        #Freeze transformation button
+        
+        #Get columns from data
         columns = []
         for column_name, state in self.column_boxes.items.items():
             if state.get() == 1:
@@ -200,18 +157,15 @@ class PickHeaders(Frame):
             self.parent.config(cursor="wait")
         except:
             pass
-        #pack progress bar
-        #pb_hd = Progressbar(self.parent, orient='horizontal', mode='indeterminate')
-        #pb_hd.pack()
-        #pb_hd.start(50)
-        #t.join()
-        #unpack progreebar
-        #pb_hd.stop()
-        #pb_hd.pack_forget()
         self.parent.notebook.pack()
     def refresh(self):
-        self.column_boxes.update_choices(self.parent.dataColumns)
-
+        self.column_boxes.update_choices(self.parent.tc.get_csv_columns())
+        #Set up the boxes
+        transform_defaults = self.parent.tc.get_transform_parameters()
+        if transform_defaults["columns"] != "":
+            for column in self.column_boxes.items:
+                if column not in transform_defaults["columns"]:
+                    self.column_boxes.items[column].set(0)
     def __init__(self, parent):
         Frame.__init__(self, parent)
         self.parent = parent
@@ -219,65 +173,61 @@ class PickHeaders(Frame):
         instruction_label = Label(self)
         instruction_label["text"] =  "                                      Instructions\n" \
                             "\n" \
-                            "Select any columns you wish to exclude from the fourier transform.\n" \
-                            "Any columns that are not castable to a number will result in a crash.\n" \
-                            "Hint: make sure to exclude timestamps\n"
+                            "Set parameters for the data transformation here.\n" \
+                            "Press \"Transform Data\" to start the data transformation"
         #Label for column list
         column_label = Label(self)
-        column_label["text"] = "Columns to exclude"
+        column_label["text"] = "Columns to include"
         #List of columns
-        self.column_boxes = CheckBoxSet(self, self.parent.dataColumns)
-        self.parent.updateExistingFiles()
+        self.column_boxes = CheckBoxSet(self, self.parent.columns)
+        self.column_boxes.configure(height=20)
+        scrollbar = Scrollbar(self.column_boxes)
+        scrollbar.pack(side=RIGHT, fill=Y)
         #Create configuration for fft parameters
         #Label for method input
         method_label = Label(self, text="Method : ")
         #Types of transforms that can be performed
-        methods = ["fft", "nothing"]
+        methods = ["fft", "spectrogram", "nothing"]
+        #Get the default parameters
+        transform_defaults = self.parent.tc.get_transform_parameters()
         #Used to store the chosen method
         self.method = StringVar(self)
-        self.method.set(methods[0])
         #Used to read in the type of transform to perform
-        self.method_entry = OptionMenu(self, self.method, methods[0], *methods)
+        self.method_entry = OptionMenu(self, self.method, transform_defaults["method"], *methods)
+        #Set up the methods
+        if transform_defaults["columns"] != "":
+            for column in self.column_boxes.items:
+                if column not in transform_defaults["columns"]:
+                    self.column_boxes.items[column].set(0)
         #Read in chunk size and fft size
         chunksize_label = Label(self, text="Chunk Size", )
         self.chunksize_entry = Entry(self, width=5)
+        self.chunksize_entry.insert(0, transform_defaults["chunk_size"])
         fftsize_label = Label(self, text="FFT Size")
         self.fftsize_entry = Entry(self, width=5)
+        self.fftsize_entry.insert(0, transform_defaults["fft_size"])
         #Used to initiate transformation
         self.transform_button = Button(self)
         self.transform_button["text"] = "Transform Data"
         self.transform_button["command"] = self.transform_data
         #Pack elements
-        instruction_label.pack()
-        column_label.pack()
-        self.column_boxes.pack()
-        method_label.pack()
-        self.method_entry.pack()
-        chunksize_label.pack()
-        self.chunksize_entry.pack()
-        fftsize_label.pack()
-        self.fftsize_entry.pack()
-        self.transform_button.pack()
-        #Pack object
-        self.pack()
-        #self.LBL.grid(row=0, column=1)
-        #self.HEADERS.grid(row=1, column=1)
-        #self.GENFFTBUTTON.grid(row=2, column=1)
-        self.grid_rowconfigure(5, weight=1)
-        self.grid_columnconfigure(2, weight=1)
+        instruction_label.grid(row=0,column=0)
+        column_label.grid(row=1, column=0)
+        self.column_boxes.grid(row=2, column=0, sticky=W+E)
+        method_label.grid(row=1, column=1)
+        self.method_entry.grid(row=1, column=2)
+        chunksize_label.grid(row=2, column=1)
+        self.chunksize_entry.grid(row=2, column=2)
+        fftsize_label.grid(row=3, column=1)
+        self.fftsize_entry.grid(row=3, column=2)
+        self.transform_button.grid(row=4, column=1)
 
 class FFTPreviewScreen(Frame):
     def __init__(self, parent):
         Frame.__init__(self, parent)
         self.parent = parent
-        self.LBL = Label(self)
-        self.LBL["text"] = "FFT Previews go here. Work in Progress..."
-        self.LBL.pack()
-        self.pack()
-        self.LBL.grid(row=0, column=1)
-        self.grid_rowconfigure(5, weight=1)
-        self.grid_columnconfigure(2, weight=1)
-
+        self.page_label = Label(self)
+        self.page_label["text"] = "FFT Previews go here. Work in Progress..."
 class ConfigureScreen(Frame):
     def save(self):
         # Disable the save button 
@@ -313,9 +263,6 @@ class ConfigureScreen(Frame):
         self.SAVEBUTTON.pack()
         self.CONFIG.bind("<<Modified>>", self.setDirty)
         self.pack()
-        #self.SAVEBUTTON.grid(row=0, column=1)
-        self.grid_rowconfigure(5, weight=1)
-        self.grid_columnconfigure(2, weight=1)
 
 
 class ResultsScreen(Frame):
@@ -344,15 +291,9 @@ class ResultsScreen(Frame):
         #results_message += "Training Loss: {}".format(training_results["loss"][-1])
         #self.LBL["text"] = results_message
 
-        self.LBL.grid(row=0, column=1)
-        self.TRAINBUTTON.grid(row=1, column=0)
-        self.grid_rowconfigure(5, weight=1)
-        self.grid_columnconfigure(2, weight=1)
-
 class ProjectHomeScreen(Frame):
     def __init__(self, parent):
         Frame.__init__(self, parent)
-        #Frame.configure(background='black')
         self.LBL = Label(self)
         self.LBL["text"] =  "                              Welcome to TimeChange\n" \
                             "\n" \
@@ -365,48 +306,26 @@ class ProjectHomeScreen(Frame):
         self.LBL.pack()
         self.parent = parent
         self.pack()
-        self.LBL.grid(row=0, column=3)
-        self.grid_rowconfigure(5, weight=5)
-        self.grid_columnconfigure(7, weight=5)
 
 class Application(Frame):
-    def updateExistingFiles(self):
-        self.csvDir = os.path.join(self.projectPath, "csv")
-        if not os.path.isdir(self.csvDir):
-            os.mkdir(self.csvDir)
-        self.labels = os.listdir(self.csvDir)
-        for label in self.labels:
-            self.files = os.listdir(os.path.join(self.csvDir, label))
-            self.dataColumns = []
-            for file in self.files:
-                csvFile = os.path.join(self.csvDir, label, file)
-                if not self.dataColumns:
-                    self.dataColumns = self.tc.get_csv_columns(csvFile)
-                else:
-                    nextDataColumns = self.tc.get_csv_columns(csvFile)
-                    if self.dataColumns != nextDataColumns:
-                        messagebox.showerror("Error", "Csv headers are inconsistent!")
-            self.selectedDataColumns = self.dataColumns
-
     def loadProject(self, projectPath):
         self.projectPath = projectPath
         self.WelcomeScreen.pack_forget()
-        self.updateExistingFiles()
         self.notebook = Notebook(self)
         self.ProjectHomeScreen = ProjectHomeScreen(self)
         self.LoadFilesScreen = LoadFilesScreen(self)
-        self.PickHeadersScreen = PickHeaders(self)
+        self.TransformDataScreen = PickHeaders(self)
         self.FFTPreviewScreen = FFTPreviewScreen(self)
         self.ConfigureScreen = ConfigureScreen(self)
         self.ResultsScreen = ResultsScreen(self)
         self.notebook.add(self.ProjectHomeScreen, text="Home")
         self.notebook.add(self.LoadFilesScreen, text="Load Files")
-        self.notebook.add(self.PickHeadersScreen, text="Transform Data")
+        self.notebook.add(self.TransformDataScreen, text="Transform Data")
         self.notebook.add(self.FFTPreviewScreen, text="FFT Preview")
         self.notebook.add(self.ConfigureScreen, text="Configure Classifier")
         self.notebook.add(self.ResultsScreen, text="Results")
         self.notebook.pack()
-        self.PickHeadersScreen.refresh()
+        self.TransformDataScreen.refresh()
     def handle_queue(self):
         #Check for events on the queue
         try:
@@ -431,11 +350,10 @@ class Application(Frame):
         Frame.__init__(self, master)
         self.WelcomeScreen = WelcomeScreen(self)
         self.WelcomeScreen.pack()
-        self.dataColumns = []
+        self.columns = []
         self.pack()
 
 root = Tk()
-root.configure(background='black')
 app = Application(master=root)
 app.mainloop()
 try:

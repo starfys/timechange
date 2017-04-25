@@ -65,7 +65,7 @@ def convert_all_csv(project_path):
             data = np.pad(data, ((0,0), (0, max_length - data.shape[1])), 'constant', constant_values=0.0)
             # Extract features from the numpy array
             # Uses same variable name since data is not needed after feature extraction
-            data = transform.extract(data, "fft", chunk_size=chunk_size, fft_size=fft_size)
+            data = transform.extract(data, method, chunk_size=chunk_size, fft_size=fft_size)
             # TODO: normalize and imageize here
             # TODO: Don't imagize at all
             # Generate an image from the resulting feature representation
@@ -80,7 +80,7 @@ def build_model(project_path):
     project_path -- path to a timechange project"""
     #Load keras
     from keras.models import Sequential
-    from keras.layers import Convolution2D, MaxPooling2D
+    from keras.layers import Convolution2D, ZeroPadding2D, MaxPooling2D
     from keras.layers import Input, Dense, Flatten, Dropout
     from keras.optimizers import SGD
     #Set dimension ordering
@@ -127,6 +127,7 @@ def build_model(project_path):
                                 activation='relu',
                                 input_shape=(3, image_height, image_width),
                                 dim_ordering='th'))
+        model.add(ZeroPadding2D((1, 1)))
         model.add(MaxPooling2D(pool_size=(2,2), dim_ordering='th'))
         #Add convolutional blocks. n-1 because the first was added already
         for layer in range(1, num_blocks):
@@ -134,6 +135,7 @@ def build_model(project_path):
             model.add(Convolution2D(num_filters[layer], 3, 3,
                                     activation='relu',
                                     dim_ordering='th'))
+            model.add(ZeroPadding2D((1, 1)))
             model.add(MaxPooling2D(pool_size=(2,2),
                                    dim_ordering='th'))
         #Create the final layers
@@ -211,6 +213,8 @@ def train(project_path, model, output_queue):
         #TODO: Handle error better
         raise Exception("Something went wrong with the training process: {}".format(str(err)))
 def worker_thread(project_path, input_queue, output_queue):
+    #Import keras immediately to get it set up
+    import keras
     try:
         model = generate_model(project_path)
     except:

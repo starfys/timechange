@@ -41,7 +41,7 @@ def extract(time_series, method, **kwargs):
     if method == "fft":
         return simple_fourier(time_series, **kwargs)
     elif method == "spectrogram":
-        return spectrogram(time_series, **kwargs)
+        return spectrogram(time_series)
     elif method == "nothing":
         return nothing(time_series)
     else:
@@ -84,7 +84,7 @@ def simple_fourier(time_series, chunk_size=64, fft_size=128):
     #Reshape the time series back to its chunked shape
     time_series = time_series.reshape(chunked_shape)
     #TODO: configure whether shuffled or stacked
-    #Shape of this array is 3, W, H
+    #Shape of this array is W, H, 3
     return np.stack((time_series, time_series, time_series), axis=2)
 
 def nothing(time_series):
@@ -93,28 +93,20 @@ def nothing(time_series):
         time_series -- The data to transform
     """
     #Bring all values up to positive
-    time_series -= np.min(time_series, axis=1).reshape(a.shape[0], 1)
+    time_series -= np.min(time_series, axis=1).reshape(time_series.shape[0], 1)
     #Normalize all rows per row
     #Get normalization values
     max_values = np.max(time_series, axis=1).reshape(time_series.shape[0], 1)
     #Fix divby0 errors
     max_values[max_values == 0] = 1
     #Return the array normalized
-    return np.array([time_series / max_values] * 3)
+    return np.stack([time_series / max_values] * 3, axis=2)
 def spectrogram(time_series):
     """Performs a spectrogram
     Parameters:
     time_series -- The time series to analyse as a 2d array.
     """
-    #TODO: Implement scipy's spectrogram
-    #Look here https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.spectrogram.html
-    
-    # pad data
-    pad_length = chunk_size - (time_series.shape[1] % chunk_size)
-    time_series = np.pad(time_series, ((0, 0), (0, pad_length)), 'constant', constant_values=0)
-    # Reshape the data to chunks of suitable size
-    time_series = time_series.reshape(int(np.product(time_series.shape) / chunk_size), chunk_size)
     # Generate the spectrogram
-    Sxx = signal.spectrogram(time_series.flatten())
+    f,t,Sxx = signal.spectrogram(time_series.flatten())
     # Return the data
-    return np.array([Sxx] * 3)
+    return np.stack([Sxx] * 3, axis=2)

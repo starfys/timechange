@@ -31,6 +31,4 @@ THE SOFTWARE.
 #This file will be executed when the user runs
 #python -m timechange
 
-from . import TimeChange
-
-tc = TimeChange()
+from . import gui
