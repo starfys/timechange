@@ -348,6 +348,8 @@ class Application(Frame):
                                "build_model": "Model Build Error",
                                "train": "Training Error"}[event["job"]]
                 messagebox.showerror(error_title, event["message"])
+            #Set the cursor back to normal after the thread has responded
+            self.parent.config(cursor="")
         except:
             pass
         self.after(250, self.handle_queue)
