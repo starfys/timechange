@@ -201,7 +201,7 @@ class TimeChange:
         """Reads a csv file and returns the column names
         """
         try:
-            example_csv = os.scandir(os.scandir(path.join(self.project_path, "csv")).__next__()).__next__().path
+            example_csv = os.scandir(os.scandir(path.join(self.project_path, "csv")).__next__().path).__next__().path
             return list(pandas.read_csv(example_csv, nrows=1).columns)
         except:
             return []

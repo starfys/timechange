@@ -336,7 +336,12 @@ class Application(Frame):
                 elif event["job"] == "build_model":
                     messagebox.showinfo("Success", "Model build was successful.")
                 elif event["job"] == "train":
-                    print(event["message"])
+                    #Create a results show
+                    results_string = ""
+                    for metric, result in event["message"].items():
+                        results_string += "{}: {:.4f}\n".format(metric, result[-1])
+                    self.ResultsScreen.LBL["text"] = results_string
+                    #Success popup
                     messagebox.showinfo("Success", "Model training complete.")
             elif event["type"] == "error":
                 error_title = {"transform":"Data Transformaton Error",
