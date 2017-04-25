@@ -84,6 +84,10 @@ class WelcomeScreen(Frame):
         self.LOADEXISTINGBUTTON.config(state=DISABLED) # once there is a way to save projects, remove this line
         self.LOADEXISTINGBUTTON.pack()
         self.pack()
+        #self.DEFAULTBUTTON.grid(row=0, column=1)
+        #self.LOADEXISTINGBUTTON.grid(row=1, column=1)
+        self.grid_rowconfigure(5, weight=1)
+        self.grid_columnconfigure(2, weight=1)
 
 class LoadFilesScreen(Frame):
     def importFiles(self):
@@ -164,6 +168,13 @@ class LoadFilesScreen(Frame):
         self.ADDBUTTON["command"] = self.addFiles
         self.ADDBUTTON.pack()
         self.pack()
+        # self.LABELLBL.grid(row=0, column=0)
+        # self.IMPORTFILESBUTTON .grid(row=1, column=0)
+        # self.IMPORTFILESFRAME.grid(row=2, column=0)
+        # self.IMPORTFILES.grid(row=3, column=0)
+        # self.ADDBUTTON.grid(row=4, column=0)
+        self.grid_rowconfigure(5, weight=1)
+        self.grid_columnconfigure(2, weight=1)
         
         
 class PickHeaders(Frame):
@@ -249,6 +260,11 @@ class PickHeaders(Frame):
         self.transform_button.pack()
         #Pack object
         self.pack()
+        #self.LBL.grid(row=0, column=1)
+        #self.HEADERS.grid(row=1, column=1)
+        #self.GENFFTBUTTON.grid(row=2, column=1)
+        self.grid_rowconfigure(5, weight=1)
+        self.grid_columnconfigure(2, weight=1)
 
 class FFTPreviewScreen(Frame):
     def __init__(self, parent):
@@ -258,6 +274,9 @@ class FFTPreviewScreen(Frame):
         self.LBL["text"] = "FFT Previews go here. Work in Progress..."
         self.LBL.pack()
         self.pack()
+        self.LBL.grid(row=0, column=1)
+        self.grid_rowconfigure(5, weight=1)
+        self.grid_columnconfigure(2, weight=1)
 
 class ConfigureScreen(Frame):
     def save(self):
@@ -294,6 +313,9 @@ class ConfigureScreen(Frame):
         self.SAVEBUTTON.pack()
         self.CONFIG.bind("<<Modified>>", self.setDirty)
         self.pack()
+        #self.SAVEBUTTON.grid(row=0, column=1)
+        self.grid_rowconfigure(5, weight=1)
+        self.grid_columnconfigure(2, weight=1)
 
 
 class ResultsScreen(Frame):
@@ -322,9 +344,15 @@ class ResultsScreen(Frame):
         #results_message += "Training Loss: {}".format(training_results["loss"][-1])
         #self.LBL["text"] = results_message
 
+        self.LBL.grid(row=0, column=1)
+        self.TRAINBUTTON.grid(row=1, column=0)
+        self.grid_rowconfigure(5, weight=1)
+        self.grid_columnconfigure(2, weight=1)
+
 class ProjectHomeScreen(Frame):
     def __init__(self, parent):
         Frame.__init__(self, parent)
+        #Frame.configure(background='black')
         self.LBL = Label(self)
         self.LBL["text"] =  "                              Welcome to TimeChange\n" \
                             "\n" \
@@ -337,6 +365,9 @@ class ProjectHomeScreen(Frame):
         self.LBL.pack()
         self.parent = parent
         self.pack()
+        self.LBL.grid(row=0, column=3)
+        self.grid_rowconfigure(5, weight=5)
+        self.grid_columnconfigure(7, weight=5)
 
 class Application(Frame):
     def updateExistingFiles(self):
@@ -404,6 +435,7 @@ class Application(Frame):
         self.pack()
 
 root = Tk()
+root.configure(background='black')
 app = Application(master=root)
 app.mainloop()
 try:
